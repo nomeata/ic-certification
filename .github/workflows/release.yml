@@ -1,9 +1,12 @@
 name: release
 
+# until we do releases, deploy docs with every commit to main
 on:
   push:
-    tags:
-      - '*'
+    branch:
+     - main
+    # tags:
+    #   - '*'
 
 jobs:
   generate-docs:
