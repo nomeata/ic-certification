@@ -45,8 +45,6 @@ import Dyadic "Dyadic";
 
 module {
 
-  /// ## Types
-
   public type Key = Blob;
   public type Value = Blob;
 
@@ -126,7 +124,7 @@ module {
     return null
   };
 
-  /// Tree construction: Inserting a key into the tree
+  /// Tree construction: Inserting a key into the tree. An existing value under that key is overridden.
   public func put(t : Tree, k : Key, v : Value) : Tree {
     switch t {
       case null {? (mkLeaf(k,v))};
