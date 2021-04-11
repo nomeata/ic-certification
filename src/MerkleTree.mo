@@ -82,6 +82,7 @@ module {
     };
     #leaf : {
       key : Key;
+      keyHash : Hash;
       prefix : [Nat8];
       hash : Hash; // simple memoization of the HashTree hash
       value : Value;
@@ -163,6 +164,7 @@ module {
 
     #leaf {
       key = k;
+      keyHash = keyHash;
       prefix = keyPrefix;
       hash = h3("\13ic-hashtree-labeled", keyHash, hashValNode(v));
       value = v;
@@ -263,7 +265,7 @@ module {
         #fork(revealMinKey(f.left), #pruned(hashT(f.right)))
       };
       case (#leaf(l)) {
-        #labeled(l.key, #pruned(hashValNode(l.value)));
+        #labeled(l.keyHash, #pruned(hashValNode(l.value)));
       }
     }
   };
@@ -274,7 +276,7 @@ module {
         #fork(#pruned(hashT(f.left)), revealMaxKey(f.right))
       };
       case (#leaf(l)) {
-        #labeled(l.key, #pruned(hashValNode(l.value)));
+        #labeled(l.keyHash, #pruned(hashValNode(l.value)));
       }
     }
   };
@@ -286,7 +288,7 @@ module {
         #empty
       };
       case (#leaf(l)) {
-        #labeled(l.key, #leaf(l.value));
+        #labeled(l.keyHash, #leaf(l.value));
       }
     }
   };
