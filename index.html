@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html><head title="Motoko docs"><meta charset="UTF-8"/><link href="styles.css" rel="stylesheet"/></head><div class="index-container"><h1 class="index-header">Index of modules</h1><ul class="index-listing"><li class="index-item"><a class="index-item-link" href="Dyadic.html">Dyadic</a><div class="index-item-comment"><p>Diadic intervals</p>
+<p>This module is mostly internal to <code>MerkleTree</code>. It is extraced to expose
+its code for the test suite without polluting the <code>MerkleTree</code> interface.</p>
+</div></li><li class="index-item"><a class="index-item-link" href="MerkleTree.html">MerkleTree</a><div class="index-item-comment"><p><strong>A merkle tree</strong></p>
+<p>This library provides a simple merkle tree data structure for Motoko.
+It provides a key-value store, where both keys and values are of type Blob.</p>
+<pre class="motoko"><code class="motoko">var t = MerkleTree.empty();
+t := MerkleTree.put(t, &quot;Alice&quot;, &quot;\00\01&quot;);
+t := MerkleTree.put(t, &quot;Bob&quot;, &quot;\00\02&quot;);
+
+let w = MerkleTree.reveals(t, [&quot;Alice&quot; : Blob, &quot;Malfoy&quot;: Blob].vals());</code></pre>
+
+<p>The witness format is compatible with
+the <a href="https://sdk.dfinity.org/docs/interface-spec/index.html#_certificate">HashTree</a> used by the Internet Computer,
+so client-side, the same logic can be used, but note</p>
+<ul><li>the trees produces here are flat; no nested subtrees</li><li>keys need to be SHA256-hashed before they are looked up in the witness</li><li>no CBOR encoding is provided here. The assumption is that the witnesses are transferred
+ via Candid, and decoded to a data type understood by the client-side library.</li></ul>
+
+<p>Revealing multiple keys at once is supported, and so is proving absence of a key.</p>
+<p>By ordering the entries by the <em>hash</em> of the key, and branching the tree
+based on the bits of that hash (i.e. a patricia trie), the merkle tree and thus the root
+hash is unique for a given tree. This in particular means that insertions are efficient,
+and that the tree can be reconstructed from the data, independently of the insertion order.</p>
+<p>A functional API is provided (instead of an object-oriented one), so that
+the actual tree can easily be stored in stable memory.</p>
+<p>The tree-related functions are still limited, only insertion so far, no
+lookup, deletion, modification, or more fancy operations. These can be added
+when needed.</p>
+</div></li></ul></div></html>
