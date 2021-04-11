@@ -357,5 +357,14 @@ module {
     return w;
   };
 
-
+  /// Nests a witness under a label. This can be used when you want to use this
+  /// library (which only produces flat labeled tree), but want to be forward
+  /// compatible to a world where you actually produce nested labeled trees, or
+  /// to be compatibe with an external specification that requires you to put
+  /// this hash-of-blob-labeled tree in a subtree.
+  ///
+  /// To not pass the result of this function to `merge`! of this ru
+  public func underLabel(l : Blob, w : Witness) : Witness {
+    #labeled(l, w)
+  };
 }
