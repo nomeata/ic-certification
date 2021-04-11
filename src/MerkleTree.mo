@@ -81,7 +81,7 @@ module {
       right : T;
     };
     #leaf : {
-      key : Key;
+      key : Key; // currently unused, but will be useful for iteration
       keyHash : Hash;
       prefix : [Nat8];
       hash : Hash; // simple memoization of the HashTree hash
