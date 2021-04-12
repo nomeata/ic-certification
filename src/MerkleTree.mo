@@ -50,27 +50,11 @@ module {
 
   /// This is the main type of this module: a possibly empty tree that maps
   /// `Key`s to `Value`s.
-  public type Tree = ?T;
+  public type Tree = InternalT;
 
-  /// The type of witnesses. This correponds to the `HashTree` in the Interface
-  /// Specification of the Internet Computer
-  public type Witness = {
-    #empty;
-    #pruned : Hash;
-    #fork : (Witness, Witness);
-    #labeled : (Key, Witness);
-    #leaf : Value;
-  };
+  type InternalT = ?T;
 
-  public type Hash = Blob;
-
-  /// ## Internal types
-
-  /// Nat8 is easier to work with so far
-  type Prefix = [Nat8];
-
-  /// Internal type, public only to avoid Motoko error M0123.
-  public type T = {
+  type T = {
     // All values in this fork are contained in the `interval`.
     // Moreover, the `left` subtree is contained in the left half of the interval
     // And the `right` subtree is contained in the right half of the interval
@@ -89,6 +73,20 @@ module {
     };
   };
 
+  /// The type of witnesses. This correponds to the `HashTree` in the Interface
+  /// Specification of the Internet Computer
+  public type Witness = {
+    #empty;
+    #pruned : Hash;
+    #fork : (Witness, Witness);
+    #labeled : (Key, Witness);
+    #leaf : Value;
+  };
+
+  public type Hash = Blob;
+
+  /// Nat8 is easier to work with so far
+  type Prefix = [Nat8];
 
   // Hash-related functions
   func hp(b : Blob) : [Nat8] {
