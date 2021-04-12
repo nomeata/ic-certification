@@ -16,7 +16,7 @@
 /// so client-side, the same logic can be used, but note
 ///
 ///  * the trees produces here are flat; no nested subtrees
-//     (but see `underLabel` to place the whole tree under a label).
+//     (but see `witnessUnderLabel` to place the whole tree under a label).
 ///  * keys need to be SHA256-hashed before they are looked up in the witness
 ///  * no CBOR encoding is provided here. The assumption is that the witnesses are transferred
 ///    via Candid, and decoded to a data type understood by the client-side library.
@@ -366,7 +366,17 @@ module {
   /// this hash-of-blob-labeled tree in a subtree.
   ///
   /// To not pass the result of this function to `merge`! of this ru
-  public func underLabel(l : Blob, w : Witness) : Witness {
+  public func witnessUnderLabel(l : Blob, w : Witness) : Witness {
     #labeled(l, w)
+  };
+
+  /// This goes along `witnessUnderLabel`, and transforms the hash
+  /// that is calculated by `treeHash` accordingly.
+  ///
+  /// If you wrap your witnesses using `witnessUnderLabel` before
+  /// sending them out, make sure to wrap your tree hash with `hashUnderLabel`
+  /// before passing them to `CertifiedData.set`.
+  public func hashUnderLabel(l : Blob, h : Hash) : Hash {
+    h3("\13ic-hashtree-labeled", prefixToHash(hp(l)), h);
   };
 }
