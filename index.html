@@ -9,7 +9,8 @@ It provides a key-value store, where both keys and values are of type Blob.</p>
 t := MerkleTree.put(t, &quot;Alice&quot;, &quot;\00\01&quot;);
 t := MerkleTree.put(t, &quot;Bob&quot;, &quot;\00\02&quot;);
 
-let w = MerkleTree.reveals(t, [&quot;Alice&quot; : Blob, &quot;Malfoy&quot;: Blob].vals());</code></pre>
+let w = MerkleTree.reveals(t, [&quot;Alice&quot; : Blob, &quot;Malfoy&quot;: Blob].vals());</code></pre><p>will produce</p>
+<pre><code>#fork (#labeled (&quot;\3B…\43&quot;, #leaf(&quot;\00\01&quot;)), #pruned (&quot;\EB…\87&quot;))</code></pre>
 
 <p>The witness format is compatible with
 the <a href="https://sdk.dfinity.org/docs/interface-spec/index.html#_certificate">HashTree</a> used by the Internet Computer,
