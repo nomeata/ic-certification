@@ -10,6 +10,10 @@
 ///
 /// let w = MerkleTree.reveals(t, ["Alice" : Blob, "Malfoy": Blob].vals());
 /// ```
+/// will produce
+/// ```
+/// #fork (#labeled ("\3B…\43", #leaf("\00\01")), #pruned ("\EB…\87"))
+/// ```
 ///
 /// The witness format is compatible with
 /// the [HashTree] used by the Internet Computer,
@@ -40,7 +44,9 @@
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
+import Blob "mo:base/Blob";
 import Nat8 "mo:base/Nat8";
+import SHA256 "mo:sha256/SHA256";
 import Dyadic "Dyadic";
 
 module {
@@ -90,20 +96,26 @@ module {
 
   // Hash-related functions
   func hp(b : Blob) : [Nat8] {
-    // import sha256
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    SHA256.sha256(Blob.toArray(b));
   };
-  func prefixToHash(a : [Nat8]) : Blob {
-    "TODO" // new Prim stuff
-  };
+
+  let prefixToHash : [Nat8] -> Blob = Blob.fromArray;
+
   func h(b : Blob) : Hash {
-    "TODO" // import sha256
+    Blob.fromArray(SHA256.sha256(Blob.toArray(b)));
   };
   func h2(b1 : Blob, b2 : Blob) : Hash {
-    "TODO" // import sha256
+    let d = SHA256.Digest();
+    d.write(Blob.toArray(b1));
+    d.write(Blob.toArray(b2));
+    Blob.fromArray(d.sum());
   };
   func h3(b1 : Blob, b2 : Blob, b3 : Blob) : Hash {
-    "TODO" // import sha256
+    let d = SHA256.Digest();
+    d.write(Blob.toArray(b1));
+    d.write(Blob.toArray(b2));
+    d.write(Blob.toArray(b3));
+    Blob.fromArray(d.sum());
   };
 
   // Functions on Tree (the possibly empty tree)
