@@ -14,7 +14,7 @@ module {
   public type Prefix = [Nat8];
   public type IntervalLength = Nat;
 
-  /// A diadic interval, identified by a common prefix and its lenght
+  /// A diadic interval, identified by a common prefix and its length
   public type Interval = { prefix : Prefix; len : IntervalLength };
 
   public func singleton(p : Prefix) : Interval {
