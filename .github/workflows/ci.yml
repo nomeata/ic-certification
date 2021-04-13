@@ -24,3 +24,20 @@ jobs:
       run: make test
     - name: "docs"
       run: make docs
+
+    - name: Cache ~/.cabal/store
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cabal/store
+        key: cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('ic-ref/impl/cabal.project', 'ic-ref/impl/cabal.project.freeze') }}
+        restore-keys: cabal-${{ runner.os }}-${{ matrix.ghc }}-
+    - uses: actions/setup-haskell@v1.1.3
+      with:
+        ghc-version: 8.8.4
+        cabal-version: '3.2'
+    - name: Build gen-tests
+      run: cd gen-tests; cabal build
+    - name: Run gen-tests
+      run: cd gen-tests; cabal run gen-tests
+
