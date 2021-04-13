@@ -5,19 +5,27 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Data.Map.Lazy as M
 import qualified Data.Set as S
 import qualified Data.ByteString.Lazy as BS
+import Control.Monad
+import Control.Monad.IO.Class
 import Crypto.Hash (hashlazy, SHA256)
+import Data.Bits
 import Data.ByteArray (convert)
+import Data.List
+import GHC.Stack
+import Hedgehog
+import Hedgehog.Gen
+import Hedgehog.Range
+import Numeric
+import System.Exit
 import System.Process.Typed
 import Test.Tasty
-import Test.Tasty.QuickCheck
-import Test.QuickCheck.Instances.ByteString
+import Test.Tasty.Hedgehog
 import Text.Printf
-import Data.List
-import Numeric
-import Data.Bits
 
 type Blob = BS.ByteString
 type Path = [Label]
@@ -53,16 +61,16 @@ moBlob = dblQuote . concatMap (printf "\\%02x") . BS.unpack
 dblQuote :: String -> String
 dblQuote = printf "\"%s\""
 
-propSHA256 = do
-  blob <- arbitrary
-  let src = test_src blob (h blob)
-  return $
-    counterexample ("Failing src:\n" <> src) $
-    ioProperty $ do
-      writeFile "../tmp.mo" src
-      runProcess_ (shell "cd .. && $(vessel bin)/moc $(vessel sources) -wasi-system-api tmp.mo")
-      runProcess_ (shell "cd .. && wasmtime tmp.wasm")
+lbytes :: MonadGen m => m BS.ByteString
+lbytes = prune $ BS.fromStrict <$> bytes (linear 0 70)
 
+propSHA256 = property $ do
+    blob <- forAll lbytes
+    let src = test_src blob (h blob)
+    annotate src -- Generated sourced
+    evalIO $ writeFile "../tmp.mo" src
+    runCommand "cd .. && $(vessel bin)/moc $(vessel sources) -wasi-system-api tmp.mo"
+    runCommand "cd .. && wasmtime tmp.wasm"
   where
     test_src b e = unlines
       [ "import Debug \"mo:base/Debug\";"
@@ -73,25 +81,31 @@ propSHA256 = do
       , printf "assert (h == (%s : Blob));" (moBlob e)
       ]
 
-propPruned = do
-  ks <- nub <$> arbitrary
-  vs <- mapM (const arbitrary) ks
+runCommand :: (HasCallStack, MonadTest m, MonadIO m) => String -> m ()
+runCommand cmd = do
+  (ex,stderr, stdout) <- evalIO $ readProcess (shell cmd)
+  unless (BS.null stdout) $ annotate $
+    printf "%s (stdout)\n:%s\n" cmd (T.unpack (T.decodeUtf8 (BS.toStrict stdout)))
+  unless (BS.null stderr) $ annotate $
+    printf "%s (stderr)\n:%s\n" cmd (T.unpack (T.decodeUtf8 (BS.toStrict stderr)))
+  ex === ExitSuccess
+
+propPruned = property $ do
+  ks <- forAll $ nub <$> list (linear 0 10) lbytes
+  vs <- forAll $ mapM (const lbytes) ks
   let pairs = zip ks vs
-  included <- sublistOf ks
-  extra <- arbitrary
-  reveal <- shuffle (included ++ extra)
+  included <- forAll $subsequence ks
+  extra <- forAll $ list (linear 0 10) lbytes
+  reveal <- forAll $ prune $ shuffle (included ++ extra)
 
   let tree = construct (SubTrees (M.fromList [ (h k, Value v) | (k,v) <- pairs ]))
-  let witness = prune tree [[h k]| k <- reveal]
+  let witness = pruneTree tree [[h k]| k <- reveal]
 
   let src = moSrc pairs reveal witness
-
-  return $
-    counterexample ("Failing src:\n" <> src) $
-    idempotentIOProperty $ do
-      writeFile "../tmp.mo" src
-      runProcess_ (shell "cd .. && $(vessel bin)/moc $(vessel sources) -wasi-system-api tmp.mo")
-      runProcess_ (shell "cd .. && wasmtime tmp.wasm")
+  annotate src -- Generated sourced
+  evalIO $ writeFile "../tmp.mo" src
+  runCommand "cd .. && $(vessel bin)/moc $(vessel sources) -wasi-system-api tmp.mo"
+  runCommand "cd .. && wasmtime tmp.wasm"
 
 main = defaultMain $
     testGroup "tests"
@@ -156,10 +170,10 @@ flatten t = go t [] -- using difference lists
     go (Fork t1 t2) = go t1 . go t2
     go t = (t:)
 
-prune :: HashTree -> [Path] -> HashTree
-prune tree [] = Pruned (reconstruct tree)
-prune tree paths | [] `elem` paths = tree
-prune tree paths = go tree
+pruneTree :: HashTree -> [Path] -> HashTree
+pruneTree tree [] = Pruned (reconstruct tree)
+pruneTree tree paths | [] `elem` paths = tree
+pruneTree tree paths = go tree
   where
     -- These labels are availbale
     present :: S.Set Label
@@ -187,7 +201,7 @@ prune tree paths = go tree
 
     go EmptyTree = EmptyTree
     go (Labeled l subtree)
-        | Just path_tails <- M.lookup l wanted = Labeled l (prune subtree (S.toList path_tails))
+        | Just path_tails <- M.lookup l wanted = Labeled l (pruneTree subtree (S.toList path_tails))
     go (Fork t1 t2) = fork (go t1) (go t2)
     go tree = Pruned (reconstruct tree)
 

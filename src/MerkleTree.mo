@@ -244,20 +244,24 @@ module {
   public func reveal(tree : Tree, k : Key) : Witness {
     switch tree {
       case null {#empty};
-      case (?t) {revealT(t, hp(k))};
+      case (?t) {
+        let (_, w, _) = revealT(t, hp(k));
+        w
+      };
     }
   };
 
-  func revealT(t : T, p : Prefix) : Witness {
+  // Returned bools indicate whether to also reveal left or right neighbor
+  func revealT(t : T, p : Prefix) : (Bool, Witness, Bool) {
     switch (Dyadic.find(p, intervalT(t))) {
       case (#before(i)) {
-        revealMinKey(t);
+        (true, revealMinKey(t), false);
       };
       case (#after(i)) {
-        revealMaxKey(t);
+        (false, revealMaxKey(t), true);
       };
       case (#equal(i)) {
-        revealLeaf(t);
+        (false, revealLeaf(t), false);
       };
       case (#in_left_half) {
         revealLeft(t, p);
@@ -302,26 +306,30 @@ module {
     }
   };
 
-  func revealLeft(t : T, p : Prefix) : Witness {
+  func revealLeft(t : T, p : Prefix) : (Bool, Witness, Bool) {
     switch (t) {
       case (#fork(f)) {
-        #fork(revealT(f.left, p), #pruned(hashT(f.right)))
+        let (b1,w1,b2) = revealT(f.left, p);
+        let w2 = if b2 { revealMinKey(f.right) } else { #pruned(hashT(f.right)) };
+        (b1, #fork(w1, w2), false);
       };
       case (#leaf(l)) {
         Debug.print("revealLeft: Not a fork");
-        #empty
+        (false, #empty, false)
       }
     }
   };
 
-  func revealRight(t : T, p : Prefix) : Witness {
+  func revealRight(t : T, p : Prefix) : (Bool, Witness, Bool) {
     switch (t) {
       case (#fork(f)) {
-        #fork(#pruned(hashT(f.left)), revealT(f.right, p))
+        let (b1,w2,b2) = revealT(f.right, p);
+        let w1 = if b1 { revealMaxKey(f.left) } else { #pruned(hashT(f.left)) };
+        (false, #fork(w1, w2), b2);
       };
       case (#leaf(l)) {
         Debug.print("revealRight: Not a fork");
-        #empty
+        (false, #empty, false)
       }
     }
   };

@@ -8,8 +8,10 @@ executable gen-tests
     main-is:          main.hs
     build-depends:    base ^>=4.13.0.0
     build-depends:    cryptonite
+    build-depends:    text
     build-depends:    tasty
-    build-depends:    tasty-quickcheck
+    build-depends:    tasty-hedgehog
+    build-depends:    hedgehog
     build-depends:    containers
     build-depends:    bytestring
     build-depends:    memory
