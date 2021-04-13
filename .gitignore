@@ -1,3 +1,6 @@
 .vessel
 *.wasm
 docs/
+
+tmp.mo
+tmp.wasm
