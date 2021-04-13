@@ -17,6 +17,7 @@ import Test.QuickCheck.Instances.ByteString
 import Text.Printf
 import Data.List
 import Numeric
+import Data.Bits
 
 type Blob = BS.ByteString
 type Path = [Label]
@@ -73,19 +74,21 @@ propSHA256 = do
       ]
 
 propPruned = do
-  pairs <- arbitrary
-  included <- sublistOf (map fst pairs)
+  ks <- nub <$> arbitrary
+  vs <- mapM (const arbitrary) ks
+  let pairs = zip ks vs
+  included <- sublistOf ks
   extra <- arbitrary
   reveal <- shuffle (included ++ extra)
 
-  let tree = construct (SubTrees (M.fromList [ (h k, Value (h v)) | (k,v) <- pairs ]))
+  let tree = construct (SubTrees (M.fromList [ (h k, Value v) | (k,v) <- pairs ]))
   let witness = prune tree [[h k]| k <- reveal]
 
   let src = moSrc pairs reveal witness
 
   return $
     counterexample ("Failing src:\n" <> src) $
-    ioProperty $ do
+    idempotentIOProperty $ do
       writeFile "../tmp.mo" src
       runProcess_ (shell "cd .. && $(vessel bin)/moc $(vessel sources) -wasi-system-api tmp.mo")
       runProcess_ (shell "cd .. && wasmtime tmp.wasm")
@@ -115,16 +118,19 @@ data HashTree
 construct :: LabeledTree -> HashTree
 construct (Value v) = Leaf v
 construct (SubTrees m) =
-    foldBinary EmptyTree Fork
-        [ Labeled k (construct v) | (k,v) <- M.toAscList m ]
+    foldBinary EmptyTree Fork Labeled [ (k, construct v) | (k,v) <- M.toAscList m ]
 
-foldBinary :: a -> (a -> a -> a) -> [a] -> a
-foldBinary e (⋔) = go
+-- This only works if all keys have the same length
+foldBinary :: a -> (a -> a -> a) -> (Blob -> b -> a) -> [(Blob, b)] -> a
+foldBinary e (⋔) l xs = go 0 xs
   where
-    go [] = e
-    go [x] = x
-    go xs = go xs1 ⋔ go xs2
-      where (xs1, xs2) = splitAt (length xs `div` 2) xs
+    go _ [] = e
+    go _ [(k,v)] = l k v
+    go i xs | null xs1 || null xs2 = go (i+1) xs
+            | otherwise = go (i+1) xs1 ⋔ go (i+1) xs2
+      where (xs1, xs2) = span (isBitUnset i . fst) xs
+
+    isBitUnset i b = not $ BS.index b (fromIntegral (i `div` 8)) `testBit` (7 - (i `mod` 8))
 
 reconstruct :: HashTree -> Hash
 reconstruct = go

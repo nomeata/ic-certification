@@ -163,8 +163,7 @@ module {
   // Smart contructors (memoize the hashes and other data)
 
   func hashValNode(v : Value) : Hash {
-    let valueHash = h(v);
-    h2("\10ic-hashtree-leaf", valueHash)
+    h2("\10ic-hashtree-leaf", v)
   };
 
   func mkLeaf(k : Key, v : Value) : T {
@@ -186,7 +185,7 @@ module {
       interval = i;
       hash = h3("\10ic-hashtree-fork", hashT(t1), hashT(t2));
       left = t1;
-      right = t1;
+      right = t2;
     }
   };
 
@@ -321,7 +320,7 @@ module {
         #fork(#pruned(hashT(f.left)), revealT(f.right, p))
       };
       case (#leaf(l)) {
-        Debug.print("revealLeft: Not a fork");
+        Debug.print("revealRight: Not a fork");
         #empty
       }
     }
@@ -333,6 +332,10 @@ module {
   /// undefined (and may trap).
   public func merge(w1 : Witness, w2 : Witness) : Witness {
     switch (w1, w2) {
+      case (#pruned(h1), #pruned(h2)) {
+        if (h1 != h2) Debug.print("MerkleTree.merge: pruned hashes differ");
+        #pruned(h1)
+      };
       case (#pruned _, w2) w2;
       case (w1, #pruned _) w1;
       // If both witnesses are not pruned, they must be headed by the same
@@ -343,7 +346,7 @@ module {
         #labeled(l1, merge(w1, w2));
       };
       case (#fork(w11, w12), #fork(w21, w22)) {
-        #fork(merge(w11, w21), merge(w21, w12))
+        #fork(merge(w11, w21), merge(w12, w22))
       };
       case (#leaf(v1), #leaf(v2)) {
         if (v1 != v2) Debug.print("MerkleTree.merge: values differ");
