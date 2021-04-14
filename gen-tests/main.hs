@@ -131,17 +131,13 @@ data HashTree
 
 construct :: LabeledTree -> HashTree
 construct (Value v) = Leaf v
-construct (SubTrees m) =
-    foldBinary EmptyTree Fork Labeled [ (k, construct v) | (k,v) <- M.toAscList m ]
-
--- This only works if all keys have the same length
-foldBinary :: a -> (a -> a -> a) -> (Blob -> b -> a) -> [(Blob, b)] -> a
-foldBinary e (⋔) l xs = go 0 xs
+construct (SubTrees m) = go 0 (M.toAscList m)
   where
-    go _ [] = e
-    go _ [(k,v)] = l k v
+    -- This only works if no key a prefix of another key
+    go _ [] = EmptyTree
+    go _ [(k,t)] = Labeled k (construct t)
     go i xs | null xs1 || null xs2 = go (i+1) xs
-            | otherwise = go (i+1) xs1 ⋔ go (i+1) xs2
+            | otherwise = go (i+1) xs1 `Fork` go (i+1) xs2
       where (xs1, xs2) = span (isBitUnset i . fst) xs
 
     isBitUnset i b = not $ BS.index b (fromIntegral (i `div` 8)) `testBit` (7 - (i `mod` 8))
