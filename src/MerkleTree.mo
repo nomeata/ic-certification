@@ -380,6 +380,27 @@ module {
     return w;
   };
 
+  /// reconstructs a hash from a witness.  This should match the value produced by treeHash
+  public func reconstruct(w: Witness) : Blob {
+      switch(w){
+          case(#empty){
+              h("\11ic-hashtree-empty")
+          };
+          case(#pruned(prunedHash)){
+              prunedHash
+          };
+          case(#leaf(value)){
+              h2("\10ic-hashtree-leaf",value)
+          };
+          case(#labeled(labeled)){
+              h3("\13ic-hashtree-labeled", labeled.0, reconstruct(labeled.1))
+          };
+          case(#fork(fork)){
+              h3("\10ic-hashtree-fork", reconstruct(fork.0), reconstruct(fork.1))
+          };
+      };
+  };
+
   /// Nests a witness under a label. This can be used when you want to use this
   /// library (which only produces flat labeled tree), but want to be forward
   /// compatible to a world where you actually produce nested labeled trees, or
