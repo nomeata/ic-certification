@@ -4,3 +4,5 @@ docs/
 
 tmp.mo
 tmp.wasm
+result
+.direnv

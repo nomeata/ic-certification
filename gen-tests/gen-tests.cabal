@@ -6,7 +6,7 @@ author:             Joachim Breitner
 maintainer:         mail@joachim-breitner.de
 executable gen-tests
     main-is:          main.hs
-    build-depends:    base ^>=4.13.0.0
+    build-depends:    base ^>=4.16.4.0
     build-depends:    cryptonite
     build-depends:    text
     build-depends:    tasty

@@ -94,7 +94,7 @@ propPruned = property $ do
   ks <- forAll $ nub <$> list (linear 0 10) lbytes
   vs <- forAll $ mapM (const lbytes) ks
   let pairs = zip ks vs
-  included <- forAll $subsequence ks
+  included <- forAll $ subsequence ks
   extra <- forAll $ list (linear 0 10) lbytes
   reveal <- forAll $ prune $ shuffle (included ++ extra)
 
