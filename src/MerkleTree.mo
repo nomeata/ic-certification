@@ -137,15 +137,10 @@ module {
 
   /// Tree construction: Inserting a key into the tree.
   /// An existing value under that key is overridden.
+  /// This also deletes all keys at all paths that are a
+  /// prefix of the given path!
   public func put(t : Tree, k : Key, v : Value) : Tree {
-    ? putOT(t, k, Blob.toArray(k), #leaf(mkLeaf(v)));
-  };
-
-  func putOT(t : ?T, k : Key, p : Prefix, s : Subtree) : T {
-    switch t {
-      case null { mkLabel(k, p, s) };
-      case (?t) { putT(t, k, p, s) };
-    }
+    modify(t, k, func (_s) { #leaf(mkLeaf(v)) })
   };
 
   // Now on the real T (the non-empty tree)
@@ -219,64 +214,75 @@ module {
     }
   };
 
-  // Insertion
+  // Modification (in particular insertion)
 
-  func putT(t : T, k : Key, p : Prefix, s : Subtree) : T {
+  func modify(t : Tree, k : Key, f : Subtree -> Subtree) : Tree {
+    ? modifyOT(t, k, Blob.toArray(k), f);
+  };
+
+  func modifyOT(t : ?T, k : Key, p : Prefix, f : Subtree -> Subtree) : T {
+    switch t {
+      case null { mkLabel(k, p, f (#subtree null)) };
+      case (?t) { modifyT(t, k, p, f) };
+    }
+  };
+
+
+  func modifyT(t : T, k : Key, p : Prefix, f : Subtree -> Subtree) : T {
     switch (Dyadic.find(p, intervalT(t))) {
       case (#before(i)) {
-        mkFork({ prefix = p; len = i }, mkLabel(k, p, s), t)
+        mkFork({ prefix = p; len = i }, mkLabel(k, p, f (#subtree null)), t)
       };
       case (#after(i)) {
-        mkFork({ prefix = p; len = i }, t, mkLabel(k, p, s))
+        mkFork({ prefix = p; len = i }, t, mkLabel(k, p, f (#subtree null)))
       };
       case (#needle_is_prefix) {
-        mkPrefix(k,p,s,t)
+        mkPrefix(k,p,f (#subtree null),t)
       };
       case (#equal) {
-        putHere(t, k, p, s)
+        modifyHere(t, k, p, f)
       };
       case (#in_left_half) {
-        putLeft(t, k, p, s);
+        modifyLeft(t, k, p, f);
       };
       case (#in_right_half) {
-        putRight(t, k, p, s);
+        modifyRight(t, k, p, f);
       };
     }
   };
 
-  func putHere(t : T, k : Key, p : Prefix, s : Subtree) : T {
+  func modifyHere(t : T, k : Key, p : Prefix, f : Subtree -> Subtree) : T {
     switch (t) {
-      // Override value in the leaf
       case (#prefix(l)) {
         switch (l.rest) {
-          case (null) { mkLabel(k, p, s) };
-          case (?t) { mkPrefix(k, p, s, t) };
+          case (null) { mkLabel(k, p, f (l.here)) };
+          case (?t) { mkPrefix(k, p, f (l.here), t) };
         }
       };
       case (#fork(_)) {
-        mkPrefix(k, p, s, t);
+        mkPrefix(k, p, f (#subtree null), t);
       };
     }
   };
 
-  func putLeft(t : T, k : Key, p : Prefix, s : Subtree) : T {
+  func modifyLeft(t : T, k : Key, p : Prefix, f : Subtree -> Subtree) : T {
     switch (t) {
-      case (#fork(f)) {
-        mkFork(f.interval, putT(f.left,k,p,s), f.right)
+      case (#fork(frk)) {
+        mkFork(frk.interval, modifyT(frk.left, k, p, f), frk.right)
       };
       case (#prefix(l)) {
-        mkPrefix(l.key, l.prefix, l.here, putOT(l.rest, k, p, s))
+        mkPrefix(l.key, l.prefix, l.here, modifyOT(l.rest, k, p, f))
       }
     }
   };
 
-  func putRight(t : T, k : Key, p : Prefix, s : Subtree) : T {
+  func modifyRight(t : T, k : Key, p : Prefix, f : Subtree -> Subtree) : T {
     switch (t) {
-      case (#fork(f)) {
-        mkFork(f.interval, f.left, putT(f.right,k,p,s))
+      case (#fork(frk)) {
+        mkFork(frk.interval, frk.left, modifyT(frk.right, k, p, f))
       };
       case (#prefix(l)) {
-        mkPrefix(l.key, l.prefix, l.here, putOT(l.rest, k, p, s))
+        mkPrefix(l.key, l.prefix, l.here, modifyOT(l.rest, k, p, f))
       }
     }
   };
