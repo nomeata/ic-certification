@@ -45,7 +45,8 @@ moSrc pairs reveal exp_w = unlines $
   [ printf "let w = MerkleTree.reveals(t, [%s].vals());" $
     intercalate ", " [ printf "%s : Blob" (moBlob k) | k <- reveal ]
   ] ++
-  [ "Debug.print(debug_show w);"
+  [ "Debug.print(debug_show t);"
+  , "Debug.print(debug_show w);"
   , printf "assert (w == %s);" (moT exp_w) ]
 
 moT :: HashTree -> String
@@ -69,7 +70,7 @@ propSHA256 = property $ do
     let src = test_src blob (h blob)
     annotate src -- Generated sourced
     evalIO $ writeFile "../tmp.mo" src
-    runCommand "cd .. && $(vessel bin)/moc $(vessel sources) -wasi-system-api tmp.mo"
+    runCommand "cd .. && $(vessel bin)/moc $(vessel sources) -no-check-ir -wasi-system-api tmp.mo"
     runCommand "cd .. && wasmtime tmp.wasm"
   where
     test_src b e = unlines
@@ -98,13 +99,15 @@ propPruned = property $ do
   extra <- forAll $ list (linear 0 10) lbytes
   reveal <- forAll $ prune $ shuffle (included ++ extra)
 
-  let tree = construct (SubTrees (M.fromList [ (h k, Value v) | (k,v) <- pairs ]))
-  let witness = pruneTree tree [[h k]| k <- reveal]
+  let tree = construct (SubTrees (M.fromList [ (k, Value v) | (k,v) <- pairs ]))
+  let witness = pruneTree tree [[k]| k <- reveal]
+  annotate (moT tree)
+  annotate (moT witness)
 
   let src = moSrc pairs reveal witness
-  annotate src -- Generated sourced
+  -- annotate src -- Generated sourced
   evalIO $ writeFile "../tmp.mo" src
-  runCommand "cd .. && $(vessel bin)/moc $(vessel sources) -wasi-system-api tmp.mo"
+  runCommand "cd .. && $(vessel bin)/moc $(vessel sources) -no-check-ir -wasi-system-api tmp.mo"
   runCommand "cd .. && wasmtime tmp.wasm"
 
 main = defaultMain $
@@ -133,14 +136,27 @@ construct :: LabeledTree -> HashTree
 construct (Value v) = Leaf v
 construct (SubTrees m) = go 0 (M.toAscList m)
   where
-    -- This only works if no key a prefix of another key
     go _ [] = EmptyTree
-    go _ [(k,t)] = Labeled k (construct t)
-    go i xs | null xs1 || null xs2 = go (i+1) xs
-            | otherwise = go (i+1) xs1 `Fork` go (i+1) xs2
-      where (xs1, xs2) = span (isBitUnset i . fst) xs
+    go _ [(k,t)] = singleton (k,t)
+    go i xs =
+        go (error "this should not happen") xs1
+        `fork` (go (i+1) xs2 `fork` go (i+1) xs3)
+      where
+        (xs1', xs3) = span (isBitUnset i . fst) xs
+        (xs1, xs2) = span (\(k,_) -> BS.length k == fromIntegral (i `div` 8)) xs1'
 
-    isBitUnset i b = not $ BS.index b (fromIntegral (i `div` 8)) `testBit` (7 - (i `mod` 8))
+    singleton (k,t) = Labeled k (construct t)
+
+    isBitUnset :: Int -> Blob -> Bool
+    isBitUnset i b
+      | i `div` 8 >= fromIntegral (BS.length b) = True
+      | otherwise = not $ BS.index b (fromIntegral (i `div` 8)) `testBit` (7 - (i `mod` 8))
+
+    fork EmptyTree t = t
+    fork t EmptyTree = t
+    fork t1 t2 = Fork t1 t2
+
+
 
 reconstruct :: HashTree -> Hash
 reconstruct = go

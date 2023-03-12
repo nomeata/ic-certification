@@ -25,6 +25,7 @@
             [ cryptonite text tasty tasty-hedgehog containers
               memory typed-process quickcheck-instances
             ]))
+          pkgs.ghcid
         ];
       };
     };

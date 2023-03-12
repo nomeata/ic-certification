@@ -13,6 +13,7 @@
 /// will produce
 /// ```
 /// #fork (#labeled ("\3B…\43", #leaf("\00\01")), #pruned ("\EB…\87"))
+/// #fork(#labeled("\41\6C\69\63\65", #leaf("\00\01")), #labeled("\42\6F\62", #pruned("\E6…\E2")))
 /// ```
 ///
 /// The witness format is compatible with
@@ -21,16 +22,15 @@
 ///
 ///  * the trees produces here are flat; no nested subtrees
 //     (but see `witnessUnderLabel` to place the whole tree under a label).
-///  * keys need to be SHA256-hashed before they are looked up in the witness
 ///  * no CBOR encoding is provided here. The assumption is that the witnesses are transferred
 ///    via Candid, and decoded to a data type understood by the client-side library.
 ///
 /// Revealing multiple keys at once is supported, and so is proving absence of a key.
 ///
-/// By ordering the entries by the _hash_ of the key, and branching the tree
-/// based on the bits of that hash (i.e. a patricia trie), the merkle tree and thus the root
-/// hash is unique for a given tree. This in particular means that insertions are efficient,
-/// and that the tree can be reconstructed from the data, independently of the insertion order.
+/// The tree branches on the bits of the keys (i.e. a patricia tree). This means that the merkle
+/// tree and thus the root hash is unique for a given tree. This in particular means that insertions
+/// are efficient, and that the tree can be reconstructed from the data, independently of the
+/// insertion order.
 ///
 /// A functional API is provided (instead of an object-oriented one), so that
 /// the actual tree can easily be stored in stable memory.
@@ -70,12 +70,16 @@ module {
       left : T;
       right : T;
     };
+    // A leaf is used both for a real leaf (one element),
+    // But also for a key that is a (strict) prefix of other keys
     #leaf : {
-      key : Key; // currently unused, but will be useful for iteration
-      keyHash : Hash;
-      prefix : [Nat8];
-      hash : Hash; // simple memoization of the HashTree hash
+      key : Key;
+      prefix : Prefix; // a copy of the key as array
       value : Value;
+      leaf_hash : Hash; // simple memoization of the leaf HashTree hash
+      labeled_hash : Hash; // simple memoization of the labeled leaf HashTree hash
+      rest : ?T;
+      tree_hash : Hash; // simple memoization of the overall HashTree hash
     };
   };
 
@@ -95,12 +99,6 @@ module {
   type Prefix = [Nat8];
 
   // Hash-related functions
-  func hp(b : Blob) : [Nat8] {
-    SHA256.sha256(Blob.toArray(b));
-  };
-
-  let prefixToHash : [Nat8] -> Blob = Blob.fromArray;
-
   func h(b : Blob) : Hash {
     Blob.fromArray(SHA256.sha256(Blob.toArray(b)));
   };
@@ -137,19 +135,22 @@ module {
 
   /// Tree construction: Inserting a key into the tree. An existing value under that key is overridden.
   public func put(t : Tree, k : Key, v : Value) : Tree {
-    switch t {
-      case null {? (mkLeaf(k,v))};
-      case (?t) {? (putT(t, hp(k), k, v))};
-    }
+    ? putOT(t, k, Blob.toArray(k), v);
   };
 
+  func putOT(t : ?T, k : Key, p : Prefix, v : Value) : T {
+    switch t {
+      case null {(mkLeaf(k, p, v))};
+      case (?t) {(putT(t, k, p, v))};
+    }
+  };
 
   // Now on the real T (the non-empty tree)
 
   func hashT(t : T) : Hash {
     switch t {
       case (#fork(f)) f.hash;
-      case (#leaf(l)) l.hash;
+      case (#leaf(l)) l.tree_hash;
     }
   };
 
@@ -162,23 +163,43 @@ module {
 
   // Smart contructors (memoize the hashes and other data)
 
-  func hashValNode(v : Value) : Hash {
+  func hashLeafNode(v : Value) : Hash {
     h2("\10ic-hashtree-leaf", v)
   };
 
-  func mkLeaf(k : Key, v : Value) : T {
-    let keyPrefix = hp(k);
-    let keyHash = prefixToHash(keyPrefix);
+  func mkLeaf(k : Key, p : Prefix, v : Value) : T {
     let valueHash = h(v);
+    let leaf_hash = hashLeafNode(v);
+    let labeled_hash = h3("\13ic-hashtree-labeled", k, leaf_hash);
 
     #leaf {
       key = k;
-      keyHash = keyHash;
-      prefix = keyPrefix;
-      hash = h3("\13ic-hashtree-labeled", keyHash, hashValNode(v));
+      prefix = p;
+      leaf_hash = leaf_hash;
+      labeled_hash = labeled_hash;
       value = v;
+      rest = null;
+      tree_hash = labeled_hash;
     }
   };
+
+  func mkPrefix(k : Key, p : Prefix, v : Value, rest : T) : T {
+    let valueHash = h(v);
+    let leaf_hash = hashLeafNode(v);
+    let labeled_hash = h3("\13ic-hashtree-labeled", k, leaf_hash);
+    let tree_hash = h3("\10ic-hashtree-fork", labeled_hash, hashT(rest));
+
+    #leaf {
+      key = k;
+      prefix = p;
+      leaf_hash = leaf_hash;
+      labeled_hash = labeled_hash;
+      value = v;
+      rest = ?rest;
+      tree_hash = tree_hash;
+    }
+  };
+
 
   func mkFork(i : Dyadic.Interval, t1 : T, t2 : T) : T {
     #fork {
@@ -191,47 +212,62 @@ module {
 
   // Insertion
 
-  func putT(t : T, p : Prefix, k : Key, v : Value) : T {
+  func putT(t : T, k : Key, p : Prefix, v : Value) : T {
     switch (Dyadic.find(p, intervalT(t))) {
       case (#before(i)) {
-        mkFork({ prefix = p; len = i }, mkLeaf(k, v), t)
+        mkFork({ prefix = p; len = i }, mkLeaf(k, p, v), t)
       };
       case (#after(i)) {
-        mkFork({ prefix = p; len = i }, t, mkLeaf(k, v))
+        mkFork({ prefix = p; len = i }, t, mkLeaf(k, p, v))
+      };
+      case (#needle_is_prefix) {
+        mkPrefix(k,p,v,t)
       };
       case (#equal) {
-	// This overrides the existing value
-        mkLeaf(k,v)
+        putHere(t, k, p,v)
       };
       case (#in_left_half) {
-        putLeft(t, p, k, v);
+        putLeft(t, k, p, v);
       };
       case (#in_right_half) {
-        putRight(t, p, k, v);
+        putRight(t, k, p, v);
       };
     }
   };
 
-  func putLeft(t : T, p : Prefix, k : Key, v : Value) : T {
+  func putHere(t : T, k : Key, p : Prefix, v : Value) : T {
+    switch (t) {
+      // Override value in the leaf
+      case (#leaf(l)) {
+        switch (l.rest) {
+          case (null) { mkLeaf(k, p, v) };
+          case (?t) { mkPrefix(k, p, v, t) };
+        }
+      };
+      case (#fork(_)) {
+        mkPrefix(k, p, v, t);
+      };
+    }
+  };
+
+  func putLeft(t : T, k : Key, p : Prefix, v : Value) : T {
     switch (t) {
       case (#fork(f)) {
-        mkFork(f.interval, putT(f.left,p,k,v), f.right)
+        mkFork(f.interval, putT(f.left,k,p,v), f.right)
       };
-      case _ {
-        Debug.print("putLeft: Not a fork");
-        t
+      case (#leaf(l)) {
+        mkPrefix(l.key, l.prefix, l.value, putOT(l.rest, k, p, v))
       }
     }
   };
 
-  func putRight(t : T, p : Prefix, k : Key, v : Value) : T {
+  func putRight(t : T, k : Key, p : Prefix, v : Value) : T {
     switch (t) {
       case (#fork(f)) {
-        mkFork(f.interval, f.left, putT(f.right,p,k,v))
+        mkFork(f.interval, f.left, putT(f.right,k,p,v))
       };
-      case _ {
-        Debug.print("putRight: Not a fork");
-        t
+      case (#leaf(l)) {
+        mkPrefix(l.key, l.prefix, l.value, putOT(l.rest, k, p, v))
       }
     }
   };
@@ -245,7 +281,7 @@ module {
     switch tree {
       case null {#empty};
       case (?t) {
-        let (_, w, _) = revealT(t, hp(k));
+        let (_, w, _) = revealT(t, Blob.toArray(k));
         w
       };
     }
@@ -260,8 +296,11 @@ module {
       case (#after(i)) {
         (false, revealMaxKey(t), true);
       };
-      case (#equal(i)) {
-        (false, revealLeaf(t), false);
+      case (#equal) {
+        revealLeaf(t);
+      };
+      case (#needle_is_prefix) {
+        (true, revealMinKey(t), false);
       };
       case (#in_left_half) {
         revealLeft(t, p);
@@ -278,7 +317,7 @@ module {
         #fork(revealMinKey(f.left), #pruned(hashT(f.right)))
       };
       case (#leaf(l)) {
-        #labeled(l.keyHash, #pruned(hashValNode(l.value)));
+        #labeled(l.key, #pruned(l.leaf_hash));
       }
     }
   };
@@ -289,19 +328,23 @@ module {
         #fork(#pruned(hashT(f.left)), revealMaxKey(f.right))
       };
       case (#leaf(l)) {
-        #labeled(l.keyHash, #pruned(hashValNode(l.value)));
+        switch (l.rest) {
+          case null { #labeled(l.key, #pruned(l.leaf_hash)) };
+          case (?t) { #fork(#pruned(l.labeled_hash), revealMaxKey(t)) };
+        }
       }
     }
   };
 
-  func revealLeaf(t : T) : Witness {
+  func revealLeaf(t : T) : (Bool, Witness, Bool) {
     switch (t) {
-      case (#fork(f)) {
-        Debug.print("revealLeaf: Not a leaf");
-        #empty
-      };
+      case (#fork(f)) { (true, revealMinKey(t), false); };
       case (#leaf(l)) {
-        #labeled(l.keyHash, #leaf(l.value));
+        let lw = #labeled(l.key, #leaf(l.value));
+        switch (l.rest) {
+          case (null) { (false, lw, false) };
+          case (?t)   { (false, #fork(lw, #pruned(hashT(t))), false); }
+        }
       }
     }
   };
@@ -314,8 +357,15 @@ module {
         (b1, #fork(w1, w2), false);
       };
       case (#leaf(l)) {
-        Debug.print("revealLeft: Not a fork");
-        (false, #empty, false)
+        switch (l.rest) {
+          case null { (false, #labeled(l.key, #pruned(l.leaf_hash)), true); };
+          case (?t2) {
+            let (b1,w1,b2) = revealT(t2, p);
+            let w0 = if b1 { #labeled(l.key, #pruned(l.leaf_hash)) }
+                     else { #pruned(l.labeled_hash) };
+            (false, #fork(w0, w1), b2);
+          }
+        }
       }
     }
   };
@@ -328,8 +378,15 @@ module {
         (false, #fork(w1, w2), b2);
       };
       case (#leaf(l)) {
-        Debug.print("revealRight: Not a fork");
-        (false, #empty, false)
+        switch (l.rest) {
+          case null { (false, #labeled(l.key, #pruned(l.leaf_hash)), true); };
+          case (?t2) {
+            let (b1,w1,b2) = revealT(t2, p);
+            let w0 = if b1 { #labeled(l.key, #pruned(l.leaf_hash)) }
+                     else { #pruned(l.labeled_hash) };
+            (false, #fork(w0, w1), b2);
+          }
+        }
       }
     }
   };
@@ -398,6 +455,6 @@ module {
   /// sending them out, make sure to wrap your tree hash with `hashUnderLabel`
   /// before passing them to `CertifiedData.set`.
   public func hashUnderLabel(l : Blob, h : Hash) : Hash {
-    h3("\13ic-hashtree-labeled", prefixToHash(hp(l)), h);
+    h3("\13ic-hashtree-labeled", l, h);
   };
 }

@@ -3,6 +3,7 @@ import S "mo:matchers/Suite";
 import T "mo:matchers/Testable";
 import Dyadic "../src/Dyadic";
 import MerkleTree "../src/MerkleTree";
+import Debug "mo:base/Debug";
 
 let testFindRes : T.Testable<Dyadic.FindResult> = {
    display = func (fr : Dyadic.FindResult) : Text = debug_show fr;
@@ -17,6 +18,51 @@ func findRes(fr: Dyadic.FindResult) : T.TestableItem<Dyadic.FindResult> {
 };
 
 let suite = S.suite("Dyadic.find", [
+    S.test("test_short",
+      Dyadic.find(
+        [0],
+      	{ prefix = [0];
+	        len = 7;
+      	}
+      ),
+      M.equals(findRes(#in_left_half))
+    ),
+    S.test("test_short1",
+      Dyadic.find(
+        [0],
+      	{ prefix = [0];
+	        len = 8;
+      	}
+      ),
+      M.equals(findRes(#equal))
+    ),
+    S.test("test_short2",
+      Dyadic.find(
+        [0,0],
+      	{ prefix = [0];
+	        len = 8;
+      	}
+      ),
+      M.equals(findRes(#in_left_half))
+    ),
+    S.test("test_short3",
+      Dyadic.find(
+        [0,255],
+      	{ prefix = [0];
+	        len = 8;
+      	}
+      ),
+      M.equals(findRes(#in_right_half))
+    ),
+    S.test("test_short4",
+      Dyadic.find(
+        [0],
+      	{ prefix = [0,0];
+	        len = 16;
+      	}
+      ),
+      M.equals(findRes(#needle_is_prefix))
+    ),
     S.test("test1",
       Dyadic.find(
         [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
@@ -139,3 +185,4 @@ t := MerkleTree.put(t, "Alice", "\00\01");
 t := MerkleTree.put(t, "Bob", "\00\02");
 
 let w = MerkleTree.reveals(t, ["Alice" : Blob, "Malfoy": Blob].vals());
+Debug.print(debug_show w);
