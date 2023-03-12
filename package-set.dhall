@@ -1,5 +1,6 @@
 let upstream =
-      https://github.com/dfinity/vessel-package-set/releases/download/mo-0.5.14-20210409/package-set.dhall sha256:8ebfd1c83165bbbc3e961b0deb7f4dad6e55935c93a6e580b7b884d5661c8cbe
+      https://github.com/dfinity/vessel-package-set/releases/download/mo-0.8.4-20230311/package-set.dhall sha256:bf5cec8ba99cfa6abcdb793a4aeaea9f4c913a4bd97af0a556bd6e81aaf75cd4
+
 
 let additions = [
    { name = "sha256"
