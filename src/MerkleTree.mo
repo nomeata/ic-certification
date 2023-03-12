@@ -52,6 +52,7 @@ import Dyadic "Dyadic";
 module {
 
   public type Key = Blob;
+  public type Path = [Blob];
   public type Value = Blob;
 
   /// This is the main type of this module: a possibly empty tree that maps
@@ -59,6 +60,9 @@ module {
   public type Tree = InternalT;
 
   type InternalT = ?T;
+
+  type Leaf = { value : Value; leaf_hash : Hash; };
+  type Subtree = { #leaf : Leaf; #subtree : Tree; };
 
   type T = {
     // All values in this fork are contained in the `interval`.
@@ -70,15 +74,14 @@ module {
       left : T;
       right : T;
     };
-    // A leaf is used both for a real leaf (one element),
-    // But also for a key that is a (strict) prefix of other keys
-    #leaf : {
+    // The value or subtree at a certain label, plus the
+    // elements whose keys this is a strict prefix of
+    #prefix : {
       key : Key;
       prefix : Prefix; // a copy of the key as array
-      value : Value;
-      leaf_hash : Hash; // simple memoization of the leaf HashTree hash
+      here : Subtree;
       labeled_hash : Hash; // simple memoization of the labeled leaf HashTree hash
-      rest : ?T;
+      rest : ?T; // Labels that are a suffix of key
       tree_hash : Hash; // simple memoization of the overall HashTree hash
     };
   };
@@ -127,37 +130,44 @@ module {
     }
   };
 
-
   /// Tree construction: The empty tree
   public func empty() : Tree {
     return null
   };
 
-  /// Tree construction: Inserting a key into the tree. An existing value under that key is overridden.
+  /// Tree construction: Inserting a key into the tree.
+  /// An existing value under that key is overridden.
   public func put(t : Tree, k : Key, v : Value) : Tree {
-    ? putOT(t, k, Blob.toArray(k), v);
+    ? putOT(t, k, Blob.toArray(k), #leaf(mkLeaf(v)));
   };
 
-  func putOT(t : ?T, k : Key, p : Prefix, v : Value) : T {
+  func putOT(t : ?T, k : Key, p : Prefix, s : Subtree) : T {
     switch t {
-      case null {(mkLeaf(k, p, v))};
-      case (?t) {(putT(t, k, p, v))};
+      case null { mkLabel(k, p, s) };
+      case (?t) { putT(t, k, p, s) };
     }
   };
 
   // Now on the real T (the non-empty tree)
 
+  func subtreeHash(s : Subtree) : Hash {
+    switch s {
+      case (#leaf(l)) l.leaf_hash;
+      case (#subtree(t)) treeHash(t);
+    }
+  };
+
   func hashT(t : T) : Hash {
     switch t {
       case (#fork(f)) f.hash;
-      case (#leaf(l)) l.tree_hash;
+      case (#prefix(l)) l.tree_hash;
     }
   };
 
   func intervalT(t : T) : Dyadic.Interval {
     switch t {
       case (#fork(f)) { f.interval };
-      case (#leaf(l)) { Dyadic.singleton(l.prefix) };
+      case (#prefix(l)) { Dyadic.singleton(l.prefix) };
     }
   };
 
@@ -167,34 +177,33 @@ module {
     h2("\10ic-hashtree-leaf", v)
   };
 
-  func mkLeaf(k : Key, p : Prefix, v : Value) : T {
-    let valueHash = h(v);
+  func mkLeaf (v : Value) : Leaf {
     let leaf_hash = hashLeafNode(v);
-    let labeled_hash = h3("\13ic-hashtree-labeled", k, leaf_hash);
+    { value = v; leaf_hash = leaf_hash}
+  };
 
-    #leaf {
+  func mkLabel(k : Key, p : Prefix, s : Subtree) : T {
+    let labeled_hash = h3("\13ic-hashtree-labeled", k, subtreeHash(s));
+
+    #prefix {
       key = k;
       prefix = p;
-      leaf_hash = leaf_hash;
       labeled_hash = labeled_hash;
-      value = v;
+      here = s;
       rest = null;
       tree_hash = labeled_hash;
     }
   };
 
-  func mkPrefix(k : Key, p : Prefix, v : Value, rest : T) : T {
-    let valueHash = h(v);
-    let leaf_hash = hashLeafNode(v);
-    let labeled_hash = h3("\13ic-hashtree-labeled", k, leaf_hash);
+  func mkPrefix(k : Key, p : Prefix, s : Subtree, rest : T) : T {
+    let labeled_hash = h3("\13ic-hashtree-labeled", k, subtreeHash(s));
     let tree_hash = h3("\10ic-hashtree-fork", labeled_hash, hashT(rest));
 
-    #leaf {
+    #prefix {
       key = k;
       prefix = p;
-      leaf_hash = leaf_hash;
       labeled_hash = labeled_hash;
-      value = v;
+      here = s;
       rest = ?rest;
       tree_hash = tree_hash;
     }
@@ -212,62 +221,62 @@ module {
 
   // Insertion
 
-  func putT(t : T, k : Key, p : Prefix, v : Value) : T {
+  func putT(t : T, k : Key, p : Prefix, s : Subtree) : T {
     switch (Dyadic.find(p, intervalT(t))) {
       case (#before(i)) {
-        mkFork({ prefix = p; len = i }, mkLeaf(k, p, v), t)
+        mkFork({ prefix = p; len = i }, mkLabel(k, p, s), t)
       };
       case (#after(i)) {
-        mkFork({ prefix = p; len = i }, t, mkLeaf(k, p, v))
+        mkFork({ prefix = p; len = i }, t, mkLabel(k, p, s))
       };
       case (#needle_is_prefix) {
-        mkPrefix(k,p,v,t)
+        mkPrefix(k,p,s,t)
       };
       case (#equal) {
-        putHere(t, k, p,v)
+        putHere(t, k, p, s)
       };
       case (#in_left_half) {
-        putLeft(t, k, p, v);
+        putLeft(t, k, p, s);
       };
       case (#in_right_half) {
-        putRight(t, k, p, v);
+        putRight(t, k, p, s);
       };
     }
   };
 
-  func putHere(t : T, k : Key, p : Prefix, v : Value) : T {
+  func putHere(t : T, k : Key, p : Prefix, s : Subtree) : T {
     switch (t) {
       // Override value in the leaf
-      case (#leaf(l)) {
+      case (#prefix(l)) {
         switch (l.rest) {
-          case (null) { mkLeaf(k, p, v) };
-          case (?t) { mkPrefix(k, p, v, t) };
+          case (null) { mkLabel(k, p, s) };
+          case (?t) { mkPrefix(k, p, s, t) };
         }
       };
       case (#fork(_)) {
-        mkPrefix(k, p, v, t);
+        mkPrefix(k, p, s, t);
       };
     }
   };
 
-  func putLeft(t : T, k : Key, p : Prefix, v : Value) : T {
+  func putLeft(t : T, k : Key, p : Prefix, s : Subtree) : T {
     switch (t) {
       case (#fork(f)) {
-        mkFork(f.interval, putT(f.left,k,p,v), f.right)
+        mkFork(f.interval, putT(f.left,k,p,s), f.right)
       };
-      case (#leaf(l)) {
-        mkPrefix(l.key, l.prefix, l.value, putOT(l.rest, k, p, v))
+      case (#prefix(l)) {
+        mkPrefix(l.key, l.prefix, l.here, putOT(l.rest, k, p, s))
       }
     }
   };
 
-  func putRight(t : T, k : Key, p : Prefix, v : Value) : T {
+  func putRight(t : T, k : Key, p : Prefix, s : Subtree) : T {
     switch (t) {
       case (#fork(f)) {
-        mkFork(f.interval, f.left, putT(f.right,k,p,v))
+        mkFork(f.interval, f.left, putT(f.right,k,p,s))
       };
-      case (#leaf(l)) {
-        mkPrefix(l.key, l.prefix, l.value, putOT(l.rest, k, p, v))
+      case (#prefix(l)) {
+        mkPrefix(l.key, l.prefix, l.here, putOT(l.rest, k, p, s))
       }
     }
   };
@@ -316,8 +325,8 @@ module {
       case (#fork(f)) {
         #fork(revealMinKey(f.left), #pruned(hashT(f.right)))
       };
-      case (#leaf(l)) {
-        #labeled(l.key, #pruned(l.leaf_hash));
+      case (#prefix(l)) {
+        #labeled(l.key, #pruned(subtreeHash(l.here)));
       }
     }
   };
@@ -327,9 +336,9 @@ module {
       case (#fork(f)) {
         #fork(#pruned(hashT(f.left)), revealMaxKey(f.right))
       };
-      case (#leaf(l)) {
+      case (#prefix(l)) {
         switch (l.rest) {
-          case null { #labeled(l.key, #pruned(l.leaf_hash)) };
+          case null { #labeled(l.key, #pruned(subtreeHash(l.here))) };
           case (?t) { #fork(#pruned(l.labeled_hash), revealMaxKey(t)) };
         }
       }
@@ -339,8 +348,12 @@ module {
   func revealLeaf(t : T) : (Bool, Witness, Bool) {
     switch (t) {
       case (#fork(f)) { (true, revealMinKey(t), false); };
-      case (#leaf(l)) {
-        let lw = #labeled(l.key, #leaf(l.value));
+      case (#prefix(l)) {
+        let lw =
+          switch (l.here) {
+            case (#leaf({value})) { #labeled(l.key, #leaf(value)) };
+            case (#subtree t) { #labeled(l.key, #pruned(treeHash t)) };
+          };
         switch (l.rest) {
           case (null) { (false, lw, false) };
           case (?t)   { (false, #fork(lw, #pruned(hashT(t))), false); }
@@ -356,12 +369,12 @@ module {
         let w2 = if b2 { revealMinKey(f.right) } else { #pruned(hashT(f.right)) };
         (b1, #fork(w1, w2), false);
       };
-      case (#leaf(l)) {
+      case (#prefix(l)) {
         switch (l.rest) {
-          case null { (false, #labeled(l.key, #pruned(l.leaf_hash)), true); };
+          case null { (false, #labeled(l.key, #pruned(subtreeHash(l.here))), true); };
           case (?t2) {
             let (b1,w1,b2) = revealT(t2, p);
-            let w0 = if b1 { #labeled(l.key, #pruned(l.leaf_hash)) }
+            let w0 = if b1 { #labeled(l.key, #pruned(subtreeHash(l.here))) }
                      else { #pruned(l.labeled_hash) };
             (false, #fork(w0, w1), b2);
           }
@@ -377,12 +390,12 @@ module {
         let w1 = if b1 { revealMaxKey(f.left) } else { #pruned(hashT(f.left)) };
         (false, #fork(w1, w2), b2);
       };
-      case (#leaf(l)) {
+      case (#prefix(l)) {
         switch (l.rest) {
-          case null { (false, #labeled(l.key, #pruned(l.leaf_hash)), true); };
+          case null { (false, #labeled(l.key, #pruned(subtreeHash(l.here))), true); };
           case (?t2) {
             let (b1,w1,b2) = revealT(t2, p);
-            let w0 = if b1 { #labeled(l.key, #pruned(l.leaf_hash)) }
+            let w0 = if b1 { #labeled(l.key, #pruned(subtreeHash(l.here))) }
                      else { #pruned(l.labeled_hash) };
             (false, #fork(w0, w1), b2);
           }
