@@ -57,13 +57,12 @@ module {
 
   /// This is the main type of this module: a possibly empty tree that maps
   /// `Key`s to `Value`s.
-  public type Tree = InternalT;
-
-  type InternalT = ?T;
+  public type Tree = LabeledTree;
 
   type Leaf = { value : Value; leaf_hash : Hash; };
-  type Subtree = { #leaf : Leaf; #subtree : Tree; };
+  type LabeledTree = { #leaf : Leaf; #subtree : OT; };
 
+  type OT = ?T;
   type T = {
     // All values in this fork are contained in the `interval`.
     // Moreover, the `left` subtree is contained in the left half of the interval
@@ -79,9 +78,9 @@ module {
     #prefix : {
       key : Key;
       prefix : Prefix; // a copy of the key as array
-      here : Subtree;
+      here : LabeledTree;
       labeled_hash : Hash; // simple memoization of the labeled leaf HashTree hash
-      rest : ?T; // Labels that are a suffix of key
+      rest : OT; // Labels that are a suffix of key
       tree_hash : Hash; // simple memoization of the overall HashTree hash
     };
   };
@@ -124,33 +123,49 @@ module {
   /// The root hash of the merkle tree. This is the value that you would sign
   /// or pass to `CertifiedData.set`
   public func treeHash(t : Tree) : Hash {
-    switch t {
-      case null h("\11ic-hashtree-empty");
-      case (?t) hashT(t);
-    }
+    labeledTreeHash(t);
   };
 
   /// Tree construction: The empty tree
   public func empty() : Tree {
-    return null
+    return #subtree null
   };
 
   /// Tree construction: Inserting a key into the tree.
   /// An existing value under that key is overridden.
   /// This also deletes all keys at all paths that are a
   /// prefix of the given path!
-  public func put(t : Tree, k : Key, v : Value) : Tree {
-    modify(t, k, func (_s) { #leaf(mkLeaf(v)) })
+  public func put(t : Tree, ks : Path, v : Value) : Tree {
+    putIter(t, ks.vals(), v);
   };
 
-  // Now on the real T (the non-empty tree)
-
-  func subtreeHash(s : Subtree) : Hash {
-    switch s {
-      case (#leaf(l)) l.leaf_hash;
-      case (#subtree(t)) treeHash(t);
+  public func putIter(t : LabeledTree, ki : Iter.Iter<Key>, v : Value) : LabeledTree {
+    switch (ki.next()) {
+      case (null) { #leaf(mkLeaf(v)) };
+      case (?k) { 
+        modifyLabeledTree(t, k, func (s) { putIter(s, ki, v) })
+      };
     }
   };
+  
+  // Labeled tree (the multi-level trees)
+
+  func labeledTreeHash(s : LabeledTree) : Hash {
+    switch s {
+      case (#leaf(l)) l.leaf_hash;
+      case (#subtree(t)) hashOT(t);
+    }
+  };
+
+  func hashOT(t : OT) : Hash {
+    switch (t) {
+      case (null) h("\11ic-hashtree-empty");
+      case (?t) hashT(t);
+    }
+  };
+
+  // Now on the real T (the non-empty one-level tree)
+
 
   func hashT(t : T) : Hash {
     switch t {
@@ -177,12 +192,12 @@ module {
     { value = v; leaf_hash = leaf_hash}
   };
 
-  func mkLabel(k : Key, p : Prefix, s : Subtree) : T {
+  func mkLabel(k : Key, p : Prefix, s : LabeledTree) : T {
     mkPrefix(k, p, s, null);
   };
 
-  func mkPrefix(k : Key, p : Prefix, s : Subtree, rest : ?T) : T {
-    let labeled_hash = h3("\13ic-hashtree-labeled", k, subtreeHash(s));
+  func mkPrefix(k : Key, p : Prefix, s : LabeledTree, rest : ?T) : T {
+    let labeled_hash = h3("\13ic-hashtree-labeled", k, labeledTreeHash(s));
 
     let tree_hash = switch (rest) {
       case null { labeled_hash };
@@ -211,11 +226,15 @@ module {
 
   // Modification (in particular insertion)
 
-  func modify(t : Tree, k : Key, f : Subtree -> Subtree) : Tree {
-    ? modifyOT(t, k, Blob.toArray(k), f);
+  func modifyLabeledTree(t : LabeledTree, k : Key, f : LabeledTree -> LabeledTree) : LabeledTree {
+    switch (t) {
+      // If we are supposed to modify at a label, but encounter a leaf, we throw it away
+      case (#leaf _) { #subtree (? modifyOT(null, k, Blob.toArray(k), f)) };
+      case (#subtree s) { #subtree (? modifyOT(s, k, Blob.toArray(k), f)) };
+    }
   };
 
-  func modifyOT(t : ?T, k : Key, p : Prefix, f : Subtree -> Subtree) : T {
+  func modifyOT(t : ?T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : T {
     switch t {
       case null { mkLabel(k, p, f (#subtree null)) };
       case (?t) { modifyT(t, k, p, f) };
@@ -223,7 +242,7 @@ module {
   };
 
 
-  func modifyT(t : T, k : Key, p : Prefix, f : Subtree -> Subtree) : T {
+  func modifyT(t : T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : T {
     switch (Dyadic.find(p, intervalT(t))) {
       case (#before(i)) {
         mkFork({ prefix = p; len = i }, mkLabel(k, p, f (#subtree null)), t)
@@ -246,7 +265,7 @@ module {
     }
   };
 
-  func modifyHere(t : T, k : Key, p : Prefix, f : Subtree -> Subtree) : T {
+  func modifyHere(t : T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : T {
     switch (t) {
       case (#prefix(l)) {
         mkPrefix(k, p, f (l.here), l.rest) 
@@ -257,7 +276,7 @@ module {
     }
   };
 
-  func modifyLeft(t : T, k : Key, p : Prefix, f : Subtree -> Subtree) : T {
+  func modifyLeft(t : T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : T {
     switch (t) {
       case (#fork(frk)) {
         mkFork(frk.interval, modifyT(frk.left, k, p, f), frk.right)
@@ -268,7 +287,7 @@ module {
     }
   };
 
-  func modifyRight(t : T, k : Key, p : Prefix, f : Subtree -> Subtree) : T {
+  func modifyRight(t : T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : T {
     switch (t) {
       case (#fork(frk)) {
         mkFork(frk.interval, frk.left, modifyT(frk.right, k, p, f))
@@ -284,12 +303,35 @@ module {
   /// Create a witness that reveals the value of the key `k` in the tree `tree`.
   ///
   /// If `k` is not in the tree, the witness will prove that fact.
-  public func reveal(tree : Tree, k : Key) : Witness {
-    switch tree {
-      case null {#empty};
-      case (?t) {
-        let (_, w, _) = revealT(t, Blob.toArray(k));
-        w
+  public func reveal(tree : Tree, path : Path) : Witness {
+    revealIter(tree, path.vals())
+  };
+
+  func revealIter(tree : LabeledTree, ki : Iter.Iter<Key>) : Witness {
+    switch (ki.next()) {
+      case (null) { 
+        switch (tree) {
+          case (#leaf(l)) { #leaf(l.value) };
+          // What to reveal when the location is not a value but a subtree?
+          // Let's reveal its root hash
+          case (#subtree(s)) { #pruned(hashOT(s)) };
+        }
+      };
+      case (?k) { 
+        switch (tree) {
+          // What to reveal when a value is on the way the path?
+          // Let's reveal it in purned form
+          case (#leaf(l)) { #pruned(treeHash(tree)) };
+          case (#subtree(s)) { 
+            switch (s) {
+              case null { #empty };
+              case (?t) {
+                let (_, w, _) = revealT(t, Blob.toArray(k));
+                w
+              }
+            }
+          }
+        }
       };
     }
   };
@@ -324,7 +366,7 @@ module {
         #fork(revealMinKey(f.left), #pruned(hashT(f.right)))
       };
       case (#prefix(l)) {
-        #labeled(l.key, #pruned(subtreeHash(l.here)));
+        #labeled(l.key, #pruned(labeledTreeHash(l.here)));
       }
     }
   };
@@ -336,7 +378,7 @@ module {
       };
       case (#prefix(l)) {
         switch (l.rest) {
-          case null { #labeled(l.key, #pruned(subtreeHash(l.here))) };
+          case null { #labeled(l.key, #pruned(labeledTreeHash(l.here))) };
           case (?t) { #fork(#pruned(l.labeled_hash), revealMaxKey(t)) };
         }
       }
@@ -350,7 +392,7 @@ module {
         let lw =
           switch (l.here) {
             case (#leaf({value})) { #labeled(l.key, #leaf(value)) };
-            case (#subtree t) { #labeled(l.key, #pruned(treeHash t)) };
+            case (#subtree _) { #labeled(l.key, #pruned(treeHash(l.here))) };
           };
         switch (l.rest) {
           case (null) { (false, lw, false) };
@@ -369,10 +411,10 @@ module {
       };
       case (#prefix(l)) {
         switch (l.rest) {
-          case null { (false, #labeled(l.key, #pruned(subtreeHash(l.here))), true); };
+          case null { (false, #labeled(l.key, #pruned(labeledTreeHash(l.here))), true); };
           case (?t2) {
             let (b1,w1,b2) = revealT(t2, p);
-            let w0 = if b1 { #labeled(l.key, #pruned(subtreeHash(l.here))) }
+            let w0 = if b1 { #labeled(l.key, #pruned(labeledTreeHash(l.here))) }
                      else { #pruned(l.labeled_hash) };
             (false, #fork(w0, w1), b2);
           }
@@ -390,10 +432,10 @@ module {
       };
       case (#prefix(l)) {
         switch (l.rest) {
-          case null { (false, #labeled(l.key, #pruned(subtreeHash(l.here))), true); };
+          case null { (false, #labeled(l.key, #pruned(labeledTreeHash(l.here))), true); };
           case (?t2) {
             let (b1,w1,b2) = revealT(t2, p);
-            let w0 = if b1 { #labeled(l.key, #pruned(subtreeHash(l.here))) }
+            let w0 = if b1 { #labeled(l.key, #pruned(labeledTreeHash(l.here))) }
                      else { #pruned(l.labeled_hash) };
             (false, #fork(w0, w1), b2);
           }
@@ -440,8 +482,8 @@ module {
     #pruned(treeHash(tree))
   };
 
-  /// Reveals multiple keys
-  public func reveals(tree : Tree, ks : Iter.Iter<Key>) : Witness {
+  /// Reveals multiple paths
+  public func reveals(tree : Tree, ks : Iter.Iter<Path>) : Witness {
     // Odd, no Iter.fold? Then let’s do a mutable loop
     var w = revealNothing(tree);
     for (k in ks) { w := merge(w, reveal(tree, k)); };

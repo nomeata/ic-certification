@@ -39,11 +39,11 @@ moSrc pairs reveal exp_w = unlines $
   , "import MerkleTree \"src/MerkleTree\";"
   , "var t = MerkleTree.empty();"
   ] ++
-  [ printf "t := MerkleTree.put(t, %s, %s);" (moBlob k) (moBlob v)
+  [ printf "t := MerkleTree.put(t, [%s], %s);" (moBlob k) (moBlob v)
   | (k,v) <- pairs
   ] ++
   [ printf "let w = MerkleTree.reveals(t, [%s].vals());" $
-    intercalate ", " [ printf "%s : Blob" (moBlob k) | k <- reveal ]
+    intercalate ", " [ printf "[%s : Blob]" (moBlob k) | k <- reveal ]
   ] ++
   [ "Debug.print(debug_show t);"
   , "Debug.print(debug_show w);"
