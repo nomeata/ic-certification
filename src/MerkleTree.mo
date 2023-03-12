@@ -39,7 +39,7 @@
 /// lookup, deletion, modification, or more fancy operations. These can be added
 /// when needed.
 ///
-/// [HashTree]: <https://sdk.dfinity.org/docs/interface-spec/index.html#_certificate>
+/// [HashTree]: <https://internetcomputer.org/docs/current/references/ic-interface-spec#certificate>
 
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
