@@ -178,28 +178,23 @@ module {
   };
 
   func mkLabel(k : Key, p : Prefix, s : Subtree) : T {
-    let labeled_hash = h3("\13ic-hashtree-labeled", k, subtreeHash(s));
-
-    #prefix {
-      key = k;
-      prefix = p;
-      labeled_hash = labeled_hash;
-      here = s;
-      rest = null;
-      tree_hash = labeled_hash;
-    }
+    mkPrefix(k, p, s, null);
   };
 
-  func mkPrefix(k : Key, p : Prefix, s : Subtree, rest : T) : T {
+  func mkPrefix(k : Key, p : Prefix, s : Subtree, rest : ?T) : T {
     let labeled_hash = h3("\13ic-hashtree-labeled", k, subtreeHash(s));
-    let tree_hash = h3("\10ic-hashtree-fork", labeled_hash, hashT(rest));
+
+    let tree_hash = switch (rest) {
+      case null { labeled_hash };
+      case (?rest) { h3("\10ic-hashtree-fork", labeled_hash, hashT(rest)); };
+    };
 
     #prefix {
       key = k;
       prefix = p;
       labeled_hash = labeled_hash;
       here = s;
-      rest = ?rest;
+      rest = rest;
       tree_hash = tree_hash;
     }
   };
@@ -237,7 +232,7 @@ module {
         mkFork({ prefix = p; len = i }, t, mkLabel(k, p, f (#subtree null)))
       };
       case (#needle_is_prefix) {
-        mkPrefix(k,p,f (#subtree null),t)
+        mkPrefix(k,p,f (#subtree null), ?t)
       };
       case (#equal) {
         modifyHere(t, k, p, f)
@@ -254,13 +249,10 @@ module {
   func modifyHere(t : T, k : Key, p : Prefix, f : Subtree -> Subtree) : T {
     switch (t) {
       case (#prefix(l)) {
-        switch (l.rest) {
-          case (null) { mkLabel(k, p, f (l.here)) };
-          case (?t) { mkPrefix(k, p, f (l.here), t) };
-        }
+        mkPrefix(k, p, f (l.here), l.rest) 
       };
       case (#fork(_)) {
-        mkPrefix(k, p, f (#subtree null), t);
+        mkPrefix(k, p, f (#subtree null), ?t);
       };
     }
   };
@@ -271,7 +263,7 @@ module {
         mkFork(frk.interval, modifyT(frk.left, k, p, f), frk.right)
       };
       case (#prefix(l)) {
-        mkPrefix(l.key, l.prefix, l.here, modifyOT(l.rest, k, p, f))
+        mkPrefix(l.key, l.prefix, l.here, ? modifyOT(l.rest, k, p, f))
       }
     }
   };
@@ -282,7 +274,7 @@ module {
         mkFork(frk.interval, frk.left, modifyT(frk.right, k, p, f))
       };
       case (#prefix(l)) {
-        mkPrefix(l.key, l.prefix, l.here, modifyOT(l.rest, k, p, f))
+        mkPrefix(l.key, l.prefix, l.here, ? modifyOT(l.rest, k, p, f))
       }
     }
   };
