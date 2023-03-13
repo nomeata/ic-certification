@@ -1,5 +1,22 @@
 {
   "nodes": {
+    "dfinity-sdk": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1678704732,
+        "narHash": "sha256-uXaufTSkytBKF/MkCwRoZwL+oqxCmSkNi5muQ6Ce95o=",
+        "owner": "nomeata",
+        "repo": "nixpkgs-dfinity-sdk",
+        "rev": "3c6d9bbb3fdab45b315d3e5761dcaa7b2168396f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nomeata",
+        "ref": "joachim/0.13.1",
+        "repo": "nixpkgs-dfinity-sdk",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1678608742,
@@ -18,6 +35,7 @@
     },
     "root": {
       "inputs": {
+        "dfinity-sdk": "dfinity-sdk",
         "nixpkgs": "nixpkgs"
       }
     }
