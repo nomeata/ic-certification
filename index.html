@@ -16,7 +16,7 @@ let w = MerkleTree.reveals(t, [&quot;Alice&quot; : Blob, &quot;Malfoy&quot;: Blo
 <p>The witness format is compatible with
 the <a href="https://internetcomputer.org/docs/current/references/ic-interface-spec#certificate">HashTree</a> used by the Internet Computer,
 so client-side, the same logic can be used, but note</p>
-<ul><li>the trees produces here are flat; no nested subtrees</li><li>no CBOR encoding is provided here. The assumption is that the witnesses are transferred
+<ul><li>no CBOR encoding is provided here. The assumption is that the witnesses are transferred
  via Candid, and decoded to a data type understood by the client-side library.</li></ul>
 
 <p>Revealing multiple keys at once is supported, and so is proving absence of a key.</p>
