@@ -34,8 +34,8 @@ jobs:
         restore-keys: cabal-${{ runner.os }}-${{ matrix.ghc }}-
     - uses: actions/setup-haskell@v1.1.3
       with:
-        ghc-version: 8.8.4
-        cabal-version: '3.2'
+        ghc-version: 9.2.6
+        cabal-version: '3.8'
     - name: Build gen-tests
       run: cd gen-tests; cabal build
     - name: Run gen-tests
