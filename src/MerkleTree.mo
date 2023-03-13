@@ -78,7 +78,7 @@ module {
     #prefix : {
       key : Key;
       prefix : Prefix; // a copy of the key as array
-      here : LabeledTree;
+      here : LabeledTree; // Invariant: never an empty tree
       labeled_hash : Hash; // simple memoization of the labeled leaf HashTree hash
       rest : OT; // Labels that are a suffix of key
       tree_hash : Hash; // simple memoization of the overall HashTree hash
@@ -139,15 +139,14 @@ module {
     putIter(t, ks.vals(), v);
   };
 
-  public func putIter(t : LabeledTree, ki : Iter.Iter<Key>, v : Value) : LabeledTree {
-    switch (ki.next()) {
-      case (null) { #leaf(mkLeaf(v)) };
-      case (?k) { 
-        modifyLabeledTree(t, k, func (s) { putIter(s, ki, v) })
-      };
-    }
+  /// Deleting a key from a tree.
+  /// This removes the given key from the tree, independently
+  /// of whether there is a value at that label, or a whole subtree.
+  /// Will also remove enclosing labels if there is no value left.
+  public func delete(t : Tree, ks : Path) : Tree {
+    deleteIter(t, ks.vals());
   };
-  
+
   // Labeled tree (the multi-level trees)
 
   func labeledTreeHash(s : LabeledTree) : Hash {
@@ -192,11 +191,14 @@ module {
     { value = v; leaf_hash = leaf_hash}
   };
 
-  func mkLabel(k : Key, p : Prefix, s : LabeledTree) : T {
+  func mkLabel(k : Key, p : Prefix, s : LabeledTree) : ?T {
     mkPrefix(k, p, s, null);
   };
 
-  func mkPrefix(k : Key, p : Prefix, s : LabeledTree, rest : ?T) : T {
+  func mkPrefix(k : Key, p : Prefix, s : LabeledTree, rest : ?T) : ?T {
+    // Enforce invariant that labels do not contain empty trees
+    switch (s) { case (#subtree(null)) { return null; }; case (_) {}; };
+      
     let labeled_hash = h3("\13ic-hashtree-labeled", k, labeledTreeHash(s));
 
     let tree_hash = switch (rest) {
@@ -204,51 +206,81 @@ module {
       case (?rest) { h3("\10ic-hashtree-fork", labeled_hash, hashT(rest)); };
     };
 
-    #prefix {
+    ? (#prefix {
       key = k;
       prefix = p;
       labeled_hash = labeled_hash;
       here = s;
       rest = rest;
       tree_hash = tree_hash;
+    })
+  };
+
+  func mkFork(i : Dyadic.Interval, t1 : ?T, t2 : ?T) : ?T {
+    switch t1 {
+      case null { t2 };
+      case (?t1) {
+        switch t2 {
+          case null { null };
+          case (?t2) {
+            ? (#fork {
+              interval = i;
+              hash = h3("\10ic-hashtree-fork", hashT(t1), hashT(t2));
+              left = t1;
+              right = t2;
+            })
+          }
+        }
+      }
     }
   };
 
+  // Insertion
 
-  func mkFork(i : Dyadic.Interval, t1 : T, t2 : T) : T {
-    #fork {
-      interval = i;
-      hash = h3("\10ic-hashtree-fork", hashT(t1), hashT(t2));
-      left = t1;
-      right = t2;
+  func putIter(t : LabeledTree, ki : Iter.Iter<Key>, v : Value) : LabeledTree {
+    switch (ki.next()) {
+      case (null) { #leaf(mkLeaf(v)) };
+      case (?k) { 
+        modifyLabeledTree(t, k, func (s) { putIter(s, ki, v) })
+      };
     }
   };
 
+  func deleteIter(t : LabeledTree, ki : Iter.Iter<Key>) : LabeledTree {
+    switch (ki.next()) {
+      case (null) { #subtree(null) };
+      case (?k) { 
+        modifyLabeledTree(t, k, func (s) { deleteIter(s, ki) })
+      };
+    }
+  };
+  
   // Modification (in particular insertion)
 
   func modifyLabeledTree(t : LabeledTree, k : Key, f : LabeledTree -> LabeledTree) : LabeledTree {
-    switch (t) {
-      // If we are supposed to modify at a label, but encounter a leaf, we throw it away
-      case (#leaf _) { #subtree (? modifyOT(null, k, Blob.toArray(k), f)) };
-      case (#subtree s) { #subtree (? modifyOT(s, k, Blob.toArray(k), f)) };
-    }
+    // If we are supposed to modify at a label, but encounter a leaf, we throw it away and 
+    // pretend its an empty tree
+    let ot = switch (t) {
+      case (#leaf _) { null };
+      case (#subtree s) { s };
+    };
+    #subtree (modifyOT(ot, k, Blob.toArray(k), f))
   };
 
-  func modifyOT(t : ?T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : T {
+  func modifyOT(t : OT, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : ?T {
     switch t {
       case null { mkLabel(k, p, f (#subtree null)) };
       case (?t) { modifyT(t, k, p, f) };
     }
   };
 
-
-  func modifyT(t : T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : T {
+  func modifyT(t : T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : ?T {
     switch (Dyadic.find(p, intervalT(t))) {
       case (#before(i)) {
-        mkFork({ prefix = p; len = i }, mkLabel(k, p, f (#subtree null)), t)
+        mkFork({ prefix = p; len = i }, mkLabel(k, p, f (#subtree null)), ? t)
       };
       case (#after(i)) {
-        mkFork({ prefix = p; len = i }, t, mkLabel(k, p, f (#subtree null)))
+        mkFork({ prefix = p; len = i }, ? t, mkLabel(k, p, f (#subtree null)))
       };
       case (#needle_is_prefix) {
         mkPrefix(k,p,f (#subtree null), ?t)
@@ -265,7 +297,7 @@ module {
     }
   };
 
-  func modifyHere(t : T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : T {
+  func modifyHere(t : T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : ?T {
     switch (t) {
       case (#prefix(l)) {
         mkPrefix(k, p, f (l.here), l.rest) 
@@ -276,24 +308,24 @@ module {
     }
   };
 
-  func modifyLeft(t : T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : T {
+  func modifyLeft(t : T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : ?T {
     switch (t) {
       case (#fork(frk)) {
-        mkFork(frk.interval, modifyT(frk.left, k, p, f), frk.right)
+        mkFork(frk.interval, modifyT(frk.left, k, p, f), ? frk.right)
       };
       case (#prefix(l)) {
-        mkPrefix(l.key, l.prefix, l.here, ? modifyOT(l.rest, k, p, f))
+        mkPrefix(l.key, l.prefix, l.here, modifyOT(l.rest, k, p, f))
       }
     }
   };
 
-  func modifyRight(t : T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : T {
+  func modifyRight(t : T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : ?T {
     switch (t) {
       case (#fork(frk)) {
-        mkFork(frk.interval, frk.left, modifyT(frk.right, k, p, f))
+        mkFork(frk.interval, ?frk.left, modifyT(frk.right, k, p, f))
       };
       case (#prefix(l)) {
-        mkPrefix(l.key, l.prefix, l.here, ? modifyOT(l.rest, k, p, f))
+        mkPrefix(l.key, l.prefix, l.here, modifyOT(l.rest, k, p, f))
       }
     }
   };
