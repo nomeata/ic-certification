@@ -181,8 +181,8 @@ S.run(suite);
 /// the example from the test. TODO: Integrate into the setup above.
 
 var t = MerkleTree.empty();
-t := MerkleTree.put(t, "Alice", "\00\01");
-t := MerkleTree.put(t, "Bob", "\00\02");
+t := MerkleTree.put(t, ["Alice"], "\00\01");
+t := MerkleTree.put(t, ["Bob"], "\00\02");
 
-let w = MerkleTree.reveals(t, ["Alice" : Blob, "Malfoy": Blob].vals());
+let w = MerkleTree.reveals(t, ([["Alice"], ["Malfoy"]] : [[Blob]]).vals());
 Debug.print(debug_show w);
