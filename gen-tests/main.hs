@@ -13,6 +13,7 @@ import qualified Data.Set as S
 import qualified Data.ByteString.Lazy as BS
 import Control.Monad
 import Control.Monad.IO.Class
+import Control.Applicative
 import Crypto.Hash (hashlazy, SHA256)
 import Data.Bits
 import Data.Maybe
@@ -20,7 +21,7 @@ import Data.ByteArray (convert)
 import Data.List hiding (insert)
 import GHC.Stack
 import Hedgehog
-import Hedgehog.Gen
+import Hedgehog.Gen hiding (constant)
 import Hedgehog.Range
 import Numeric
 import System.Exit
@@ -34,23 +35,37 @@ type Path = [Label]
 type Label = Blob
 type Value = Blob
 type Hash = Blob
+type Pairs = [(Path, Value)]
 
-
-moSrc :: [(Path, Value)] -> [Path] -> HashTree -> String
+moSrc :: Pairs -> [Path] -> HashTree -> String
 moSrc pairs reveal exp_w = unlines $
   [ "import Debug \"mo:base/Debug\";"
   , "import MerkleTree \"src/MerkleTree\";"
   , "var t = MerkleTree.empty();"
   ] ++
-  [ printf "t := MerkleTree.put(t, %s, %s);" (moBlobs k) (moBlob v)
-  | (k,v) <- pairs
-  ] ++
+  [ printf "t := MerkleTree.put(t, %s, %s);" (moBlobs k) (moBlob v) | (k,v) <- pairs ] ++
   [ printf "let w = MerkleTree.reveals(t, [%s].vals());" $
     intercalate ", " [ moBlobs k | k <- reveal ]
   ] ++
   [ "Debug.print(debug_show t);"
   , "Debug.print(debug_show w);"
   , printf "assert (w == %s);" (moT exp_w) ]
+
+moSrcDel :: Pairs -> [Path] -> Pairs -> String
+moSrcDel pairs1 dps pairs2 = unlines $
+  [ "import Debug \"mo:base/Debug\";"
+  , "import MerkleTree \"src/MerkleTree\";"
+  , "var t1 = MerkleTree.empty();" ] ++
+  [ printf "t1 := MerkleTree.put(t1, %s, %s);" (moBlobs k) (moBlob v) | (k,v) <- pairs1 ] ++
+  [ "var t2 = t1;" ] ++
+  [ printf "t2 := MerkleTree.delete(t2, %s);" (moBlobs k) | k <- dps ] ++
+  [ "var t3 = MerkleTree.empty();" ] ++
+  [ printf "t3 := MerkleTree.put(t3, %s, %s);" (moBlobs k) (moBlob v) | (k,v) <- pairs2 ] ++
+  [ "Debug.print(debug_show (MerkleTree.structure t1));"
+  , "Debug.print(debug_show (MerkleTree.structure t2));"
+  , "Debug.print(debug_show (MerkleTree.structure t3));"
+  , printf "assert (t2 == t3);"
+  ]
 
 moT :: HashTree -> String
 moT EmptyTree = "#empty"
@@ -67,8 +82,11 @@ moBlobs = printf "([%s] : [Blob])" . intercalate ", " . fmap moBlob
 dblQuote :: String -> String
 dblQuote = printf "\"%s\""
 
-lbytes :: MonadGen m => m BS.ByteString
-lbytes = BS.fromStrict <$> bytes (linear 0 70)
+lbytes :: (Alternative m, MonadGen m) => m BS.ByteString
+lbytes = fmap BS.fromStrict $
+    element ["", "a", "b", "c"] <|>
+    bytes (constant 0 3) <|>
+    bytes (linear 0 70)
 
 propSHA256 = property $ do
     blob <- forAll lbytes
@@ -98,11 +116,11 @@ runCommand cmd = do
 
 propPruned = property $ do
   ls :: [Label] <- forAll $ nub <$> list (linear 1 10) lbytes
-  ps :: [Path] <- forAll $ list (linear 0 10) (nub <$> list (linear 0 5) (element ls))
+  ps :: [Path] <- forAll $ list (linear 0 10) (nub <$> list (constant 0 3) (element ls))
   vs :: [Blob] <- forAll $ mapM (const lbytes) ps
   let pairs = zip ps vs
   included :: [Path] <- forAll $ subsequence ps
-  extra :: [Path] <- forAll $ nub <$> list (linear 0 3) (nub <$> list (linear 0 5) (element ls))
+  extra :: [Path] <- forAll $ nub <$> list (linear 0 3) (nub <$> list (constant 0 3) (element ls))
   reveal :: [Path] <- forAll $ prune $ shuffle (included ++ extra)
 
   let tree = construct (fromList [ (p, v) | (p,v) <- pairs ])
@@ -116,12 +134,46 @@ propPruned = property $ do
   runCommand "cd .. && $(vessel bin)/moc $(vessel sources) -no-check-ir -wasi-system-api tmp.mo"
   runCommand "cd .. && wasmtime tmp.wasm"
 
+propDelete = property $ do
+  ls :: [Label] <- forAll $ nub <$> list (linear 1 10) lbytes
+  ps :: [Path] <- forAll $ list (linear 0 10) (nub <$> list (constant 0 3) (element ls))
+  vs :: [Blob] <- forAll $ mapM (const lbytes) ps
+  let pairs = zip ps vs
+  included :: [Path] <- forAll $ subsequence ps
+  extra :: [Path] <- forAll $ nub <$> list (linear 0 3) (nub <$> list (constant 0 3) (element ls))
+  dps :: [Path] <- forAll $ shuffle (included ++ extra)
+
+  let pairs2 = [ (p, v)
+               | (p, v) <- afterInsertion pairs
+               , not (any (\d -> d `conflicts` p) dps)
+               ]
+  annotate $ show pairs
+  annotate $ show pairs2
+
+  let src = moSrcDel pairs dps pairs2
+  -- annotate src -- Generated sourced
+  evalIO $ writeFile "../tmp.mo" src
+  runCommand "cd .. && $(vessel bin)/moc $(vessel sources) -no-check-ir -wasi-system-api tmp.mo"
+  runCommand "cd .. && wasmtime tmp.wasm"
+
+
+conflicts :: Path -> Path -> Bool
+conflicts p1 p2 = p1 `isPrefixOf` p2 || p2 `isPrefixOf` p1
+
+-- Removes those elements that will be overriden later
+afterInsertion :: Pairs -> Pairs
+afterInsertion [] = []
+afterInsertion ((k,v): ps)
+    | throw_out = afterInsertion ps
+    | otherwise = (k,v) : afterInsertion ps
+  where throw_out = any (\(k',_) -> k `conflicts` k') ps
+
 main = defaultMain $
     testGroup "tests"
-        [ testProperty "SHA256 test" propSHA256
-        , testProperty "witness tests" propPruned
+        [ testProperty "SHA256" propSHA256
+        , testProperty "witness" propPruned
+        , testProperty "delete" propDelete
         ]
-
 
 -- HashTree implementation below
 
@@ -145,7 +197,7 @@ insert (k:ps) v (SubTrees m) = SubTrees (M.alter go k m)
   where
     go old = Just $ insert ps v (fromMaybe (SubTrees M.empty) old)
 
-fromList :: [(Path, Value)] -> LabeledTree
+fromList :: Pairs -> LabeledTree
 fromList = foldl' (\t (p,v) -> insert p v t) (SubTrees M.empty)
 
 construct :: LabeledTree -> HashTree

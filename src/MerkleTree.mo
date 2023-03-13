@@ -45,6 +45,7 @@ import Array "mo:base/Array";
 import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
 import Blob "mo:base/Blob";
+import Buffer "mo:base/Buffer";
 import Nat8 "mo:base/Nat8";
 import SHA256 "mo:sha256/SHA256";
 import Dyadic "Dyadic";
@@ -197,7 +198,7 @@ module {
 
   func mkPrefix(k : Key, p : Prefix, s : LabeledTree, rest : ?T) : ?T {
     // Enforce invariant that labels do not contain empty trees
-    switch (s) { case (#subtree(null)) { return null; }; case (_) {}; };
+    switch (s) { case (#subtree(null)) { return rest; }; case (_) {}; };
       
     let labeled_hash = h3("\13ic-hashtree-labeled", k, labeledTreeHash(s));
 
@@ -221,7 +222,7 @@ module {
       case null { t2 };
       case (?t1) {
         switch t2 {
-          case null { null };
+          case null { ? t1 };
           case (?t2) {
             ? (#fork {
               interval = i;
@@ -539,5 +540,44 @@ module {
   /// before passing them to `CertifiedData.set`.
   public func hashUnderLabel(l : Blob, h : Hash) : Hash {
     h3("\13ic-hashtree-labeled", l, h);
+  };
+
+
+  /// The return type of `structure`
+  public type RawTree = {
+    #value : Blob;
+    #subtree : [(Key, RawTree)];
+  };
+
+  /// Extract the raw data from the trees, mostly for pretty-printing
+  public func structure(t : Tree) : RawTree {
+    switch (t) {
+      case (#leaf(v)) { #value(v.value) };
+      case (#subtree(t)) {
+        let b = Buffer.Buffer<(Key,RawTree)>(10);
+        collectOT(t, b);
+        #subtree(Buffer.toArray(b));
+      };
+    };
+  };
+
+  func collectOT(t : OT, b : Buffer.Buffer<(Key, RawTree)>) {
+    switch(t) {
+      case null {};
+      case (?t) (collectT(t,b));
+    };
+  };
+
+  func collectT(t : T, b : Buffer.Buffer<(Key, RawTree)>) {
+    switch(t) {
+      case (#prefix(p))  { 
+          b.add((p.key, structure(p.here)));
+          collectOT(p.rest, b);
+      };
+      case (#fork(f)) {
+          collectT(f.left, b);
+          collectT(f.right, b);
+       };
+    };
   };
 }
