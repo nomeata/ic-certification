@@ -186,3 +186,13 @@ t := MerkleTree.put(t, ["Bob"], "\00\02");
 
 let w = MerkleTree.reveals(t, ([["Alice"], ["Malfoy"]] : [[Blob]]).vals());
 Debug.print(debug_show w);
+
+/// Some example witnesses
+Debug.print("Some CBOR-encoded witnesses:");
+Debug.print(debug_show (MerkleTree.encodeWitness(#empty)));
+Debug.print(debug_show (MerkleTree.encodeWitness(#labeled("",#leaf("0")))));
+let b10 = "0123456789" : Blob;
+let b20 = "01234567890123456789" : Blob;
+let b23 = "01234567890123456789012" : Blob;
+let b24 = "012345678901234567890123" : Blob;
+Debug.print(debug_show (MerkleTree.encodeWitness(#labeled(b23,#leaf(b24)))));

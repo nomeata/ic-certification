@@ -569,4 +569,70 @@ module {
        };
     };
   };
+
+  /// The CBOR encoding of a Witness, according to
+  /// <https://sdk.dfinity.org/docs/interface-spec/index.html#certification-encoding>
+  /// including the CBOR self-describing tag
+  public func encodeWitness(tree : Witness) : Blob {
+
+    // This data structure needs only very few features of CBOR, so instead of writing
+    // a full-fledged CBOR encoding library, I just directly write out the bytes for the
+    // few constructs we need here.
+
+    func add_blob(buf : Buffer.Buffer<Nat8>, b: Blob) {
+      // Header
+      let len = b.size();
+      if (len <= 23) {
+        buf.add(2 << 5 + Nat8.fromNat(len));
+      } else if (len <= 0xff) {
+        buf.add(0x58);
+        buf.add(Nat8.fromNat(len));
+      } else if (len <= 0xffff) {
+        buf.add(0x59);
+        buf.add(Nat8.fromIntWrap(len / 0x100));
+        buf.add(Nat8.fromIntWrap(len));
+      } else if (len <= 0xffffff) {
+        buf.add(0x5a);
+        buf.add(Nat8.fromIntWrap(len / 0x10000));
+        buf.add(Nat8.fromIntWrap(len / 0x100));
+        buf.add(Nat8.fromIntWrap(len));
+      } else if (len <= 0xffffffff) {
+        buf.add(0x5b);
+        buf.add(Nat8.fromIntWrap(len / 0x1000000));
+        buf.add(Nat8.fromIntWrap(len / 0x10000));
+        buf.add(Nat8.fromIntWrap(len / 0x100));
+        buf.add(Nat8.fromIntWrap(len));
+      } else {
+        Debug.trap("Blob too long to serialize");
+      };
+
+      for (c in Blob.toArray(b).vals()) {
+        buf.add(c);
+      };
+    };
+
+    func go(buf : Buffer.Buffer<Nat8>, t : Witness) {
+      switch (t) {
+        case (#empty)        { buf.add(0x81); buf.add(0x00); };
+        case (#fork(t1,t2))  { buf.add(0x83); buf.add(0x01); go(buf, t1); go (buf, t2); };
+        case (#labeled(l,t)) { buf.add(0x83); buf.add(0x02); add_blob(buf, l); go (buf, t); };
+        case (#leaf(v))      { buf.add(0x82); buf.add(0x03); add_blob(buf, v); };
+        case (#pruned(h))    { buf.add(0x82); buf.add(0x04); add_blob(buf, h); }
+      }
+    };
+
+    let buf = Buffer.Buffer<Nat8>(100);
+
+    // CBOR self-describing tag
+    buf.add(0xD9);
+    buf.add(0xD9);
+    buf.add(0xF7);
+
+    go(buf, tree);
+
+    return Blob.fromArray(Buffer.toArray(buf));
+  };
+
+
 }
+
