@@ -9,9 +9,9 @@
        # Switch to dfinity/vessel once
        # https://github.com/dfinity/vessel/pull/70 is merged
        vessel-src = pkgs.fetchFromGitHub {
-         owner = "nomeata";
+         owner = "dfinity";
          repo = "vessel";
-         rev = "9fd74fce5c9528e536a1a4692fd70ec375dd15d0";
+         rev = "99661e40c4c47110129176ee9ecc61a50f1f60db";
          hash = "sha256-nrSxy6L+wg+g9PFQJ964ZW2bZyiE/ZJ5S5N281/I6ys=";
        };
        vessel = (import vessel-src { system = "x86_64-linux"; }).vessel;
