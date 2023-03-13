@@ -313,8 +313,10 @@ module {
         switch (tree) {
           case (#leaf(l)) { #leaf(l.value) };
           // What to reveal when the location is not a value but a subtree?
-          // Let's reveal its root hash
-          case (#subtree(s)) { #pruned(hashOT(s)) };
+          // If empty, reveal that
+          case (#subtree(null)) { #empty };
+          // else reveal its root hash
+          case (#subtree(?t)) { #pruned(hashT(t)) };
         }
       };
       case (?k) { 
@@ -326,7 +328,7 @@ module {
             switch (s) {
               case null { #empty };
               case (?t) {
-                let (_, w, _) = revealT(t, Blob.toArray(k));
+                let (_, w, _) = revealT(t, Blob.toArray(k), ki);
                 w
               }
             }
@@ -337,7 +339,7 @@ module {
   };
 
   // Returned bools indicate whether to also reveal left or right neighbor
-  func revealT(t : T, p : Prefix) : (Bool, Witness, Bool) {
+  func revealT(t : T, p : Prefix, ki : Iter.Iter<Key>) : (Bool, Witness, Bool) {
     switch (Dyadic.find(p, intervalT(t))) {
       case (#before(i)) {
         (true, revealMinKey(t), false);
@@ -346,16 +348,16 @@ module {
         (false, revealMaxKey(t), true);
       };
       case (#equal) {
-        revealLeaf(t);
+        revealLeaf(t, ki);
       };
       case (#needle_is_prefix) {
         (true, revealMinKey(t), false);
       };
       case (#in_left_half) {
-        revealLeft(t, p);
+        revealLeft(t, p, ki);
       };
       case (#in_right_half) {
-        revealRight(t, p);
+        revealRight(t, p, ki);
       };
     }
   };
@@ -385,15 +387,11 @@ module {
     }
   };
 
-  func revealLeaf(t : T) : (Bool, Witness, Bool) {
+  func revealLeaf(t : T, ki : Iter.Iter<Key>) : (Bool, Witness, Bool) {
     switch (t) {
       case (#fork(f)) { (true, revealMinKey(t), false); };
       case (#prefix(l)) {
-        let lw =
-          switch (l.here) {
-            case (#leaf({value})) { #labeled(l.key, #leaf(value)) };
-            case (#subtree _) { #labeled(l.key, #pruned(treeHash(l.here))) };
-          };
+        let lw = #labeled(l.key, revealIter(l.here, ki));
         switch (l.rest) {
           case (null) { (false, lw, false) };
           case (?t)   { (false, #fork(lw, #pruned(hashT(t))), false); }
@@ -402,10 +400,10 @@ module {
     }
   };
 
-  func revealLeft(t : T, p : Prefix) : (Bool, Witness, Bool) {
+  func revealLeft(t : T, p : Prefix, ki : Iter.Iter<Key>) : (Bool, Witness, Bool) {
     switch (t) {
       case (#fork(f)) {
-        let (b1,w1,b2) = revealT(f.left, p);
+        let (b1,w1,b2) = revealT(f.left, p, ki);
         let w2 = if b2 { revealMinKey(f.right) } else { #pruned(hashT(f.right)) };
         (b1, #fork(w1, w2), false);
       };
@@ -413,7 +411,7 @@ module {
         switch (l.rest) {
           case null { (false, #labeled(l.key, #pruned(labeledTreeHash(l.here))), true); };
           case (?t2) {
-            let (b1,w1,b2) = revealT(t2, p);
+            let (b1,w1,b2) = revealT(t2, p, ki);
             let w0 = if b1 { #labeled(l.key, #pruned(labeledTreeHash(l.here))) }
                      else { #pruned(l.labeled_hash) };
             (false, #fork(w0, w1), b2);
@@ -423,10 +421,10 @@ module {
     }
   };
 
-  func revealRight(t : T, p : Prefix) : (Bool, Witness, Bool) {
+  func revealRight(t : T, p : Prefix, ki : Iter.Iter<Key>) : (Bool, Witness, Bool) {
     switch (t) {
       case (#fork(f)) {
-        let (b1,w2,b2) = revealT(f.right, p);
+        let (b1,w2,b2) = revealT(f.right, p, ki);
         let w1 = if b1 { revealMaxKey(f.left) } else { #pruned(hashT(f.left)) };
         (false, #fork(w1, w2), b2);
       };
@@ -434,7 +432,7 @@ module {
         switch (l.rest) {
           case null { (false, #labeled(l.key, #pruned(labeledTreeHash(l.here))), true); };
           case (?t2) {
-            let (b1,w1,b2) = revealT(t2, p);
+            let (b1,w1,b2) = revealT(t2, p, ki);
             let w0 = if b1 { #labeled(l.key, #pruned(labeledTreeHash(l.here))) }
                      else { #pruned(l.labeled_hash) };
             (false, #fork(w0, w1), b2);

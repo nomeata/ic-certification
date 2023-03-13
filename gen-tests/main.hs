@@ -4,6 +4,7 @@
 
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -14,8 +15,9 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Crypto.Hash (hashlazy, SHA256)
 import Data.Bits
+import Data.Maybe
 import Data.ByteArray (convert)
-import Data.List
+import Data.List hiding (insert)
 import GHC.Stack
 import Hedgehog
 import Hedgehog.Gen
@@ -34,16 +36,17 @@ type Value = Blob
 type Hash = Blob
 
 
+moSrc :: [(Path, Value)] -> [Path] -> HashTree -> String
 moSrc pairs reveal exp_w = unlines $
   [ "import Debug \"mo:base/Debug\";"
   , "import MerkleTree \"src/MerkleTree\";"
   , "var t = MerkleTree.empty();"
   ] ++
-  [ printf "t := MerkleTree.put(t, [%s], %s);" (moBlob k) (moBlob v)
+  [ printf "t := MerkleTree.put(t, %s, %s);" (moBlobs k) (moBlob v)
   | (k,v) <- pairs
   ] ++
   [ printf "let w = MerkleTree.reveals(t, [%s].vals());" $
-    intercalate ", " [ printf "[%s : Blob]" (moBlob k) | k <- reveal ]
+    intercalate ", " [ moBlobs k | k <- reveal ]
   ] ++
   [ "Debug.print(debug_show t);"
   , "Debug.print(debug_show w);"
@@ -58,12 +61,14 @@ moT (Pruned h) = printf "#pruned(%s)" (moBlob h)
 
 moBlob :: BS.ByteString -> String
 moBlob = dblQuote . concatMap (printf "\\%02x") . BS.unpack
+moBlobs :: [BS.ByteString] -> String
+moBlobs = printf "([%s] : [Blob])" . intercalate ", " . fmap moBlob
 
 dblQuote :: String -> String
 dblQuote = printf "\"%s\""
 
 lbytes :: MonadGen m => m BS.ByteString
-lbytes = prune $ BS.fromStrict <$> bytes (linear 0 70)
+lbytes = BS.fromStrict <$> bytes (linear 0 70)
 
 propSHA256 = property $ do
     blob <- forAll lbytes
@@ -92,15 +97,16 @@ runCommand cmd = do
   ex === ExitSuccess
 
 propPruned = property $ do
-  ks <- forAll $ nub <$> list (linear 0 10) lbytes
-  vs <- forAll $ mapM (const lbytes) ks
-  let pairs = zip ks vs
-  included <- forAll $ subsequence ks
-  extra <- forAll $ list (linear 0 10) lbytes
-  reveal <- forAll $ prune $ shuffle (included ++ extra)
+  ls :: [Label] <- forAll $ nub <$> list (linear 1 10) lbytes
+  ps :: [Path] <- forAll $ list (linear 0 10) (nub <$> list (linear 0 5) (element ls))
+  vs :: [Blob] <- forAll $ mapM (const lbytes) ps
+  let pairs = zip ps vs
+  included :: [Path] <- forAll $ subsequence ps
+  extra :: [Path] <- forAll $ nub <$> list (linear 0 3) (nub <$> list (linear 0 5) (element ls))
+  reveal :: [Path] <- forAll $ prune $ shuffle (included ++ extra)
 
-  let tree = construct (SubTrees (M.fromList [ (k, Value v) | (k,v) <- pairs ]))
-  let witness = pruneTree tree [[k]| k <- reveal]
+  let tree = construct (fromList [ (p, v) | (p,v) <- pairs ])
+  let witness = pruneTree tree reveal
   annotate (moT tree)
   annotate (moT witness)
 
@@ -131,6 +137,16 @@ data HashTree
     | Leaf Value
     | Pruned Hash
   deriving Show
+
+insert :: Path -> Value -> LabeledTree -> LabeledTree
+insert [] v _ = Value v
+insert (k:ps) v (Value _) = insert (k:ps) v (SubTrees M.empty)
+insert (k:ps) v (SubTrees m) = SubTrees (M.alter go k m)
+  where
+    go old = Just $ insert ps v (fromMaybe (SubTrees M.empty) old)
+
+fromList :: [(Path, Value)] -> LabeledTree
+fromList = foldl' (\t (p,v) -> insert p v t) (SubTrees M.empty)
 
 construct :: LabeledTree -> HashTree
 construct (Value v) = Leaf v
@@ -184,10 +200,10 @@ flatten t = go t [] -- using difference lists
 
 pruneTree :: HashTree -> [Path] -> HashTree
 pruneTree tree [] = Pruned (reconstruct tree)
-pruneTree tree paths | [] `elem` paths = tree
+pruneTree (Leaf v) paths | [] `elem` paths = Leaf v
 pruneTree tree paths = go tree
   where
-    -- These labels are availbale
+    -- These labels are available
     present :: S.Set Label
     present = S.fromList [ l | Labeled l _ <- flatten tree]
 
