@@ -49,7 +49,9 @@ moSrc pairs reveal exp_w = unlines $
   ] ++
   [ "Debug.print(debug_show t);"
   , "Debug.print(debug_show w);"
-  , printf "assert (w == %s);" (moT exp_w) ]
+  , printf "assert (w == %s);" (moT exp_w)
+  , printf "assert (MerkleTree.reconstruct w == MerkleTree.treeHash t);"
+  ]
 
 moSrcDel :: Pairs -> [Path] -> Pairs -> String
 moSrcDel pairs1 dps pairs2 = unlines $

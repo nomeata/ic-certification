@@ -119,6 +119,12 @@ module {
     Blob.fromArray(d.sum());
   };
 
+  /// The hashing function for the hash tree
+  func hashEmpty()                    : Hash { h("\11ic-hashtree-empty") };
+  func hashLeaf(v : Blob)             : Hash { h2("\10ic-hashtree-leaf", v) };
+  func hashLabeled(l : Key, s : Hash) : Hash { h3("\13ic-hashtree-labeled", l, s) };
+  func hashFork(l : Hash, r : Hash)   : Hash { h3("\10ic-hashtree-fork", l, r) };
+
   // Functions on Tree (the possibly empty tree)
 
   /// The root hash of the merkle tree. This is the value that you would sign
@@ -159,7 +165,7 @@ module {
 
   func hashOT(t : OT) : Hash {
     switch (t) {
-      case (null) h("\11ic-hashtree-empty");
+      case (null) hashEmpty();
       case (?t) hashT(t);
     }
   };
@@ -183,12 +189,8 @@ module {
 
   // Smart contructors (memoize the hashes and other data)
 
-  func hashLeafNode(v : Value) : Hash {
-    h2("\10ic-hashtree-leaf", v)
-  };
-
   func mkLeaf (v : Value) : Leaf {
-    let leaf_hash = hashLeafNode(v);
+    let leaf_hash = hashLeaf(v);
     { value = v; leaf_hash = leaf_hash}
   };
 
@@ -200,11 +202,11 @@ module {
     // Enforce invariant that labels do not contain empty trees
     switch (s) { case (#subtree(null)) { return rest; }; case (_) {}; };
       
-    let labeled_hash = h3("\13ic-hashtree-labeled", k, labeledTreeHash(s));
+    let labeled_hash = hashLabeled(k, labeledTreeHash(s));
 
     let tree_hash = switch (rest) {
       case null { labeled_hash };
-      case (?rest) { h3("\10ic-hashtree-fork", labeled_hash, hashT(rest)); };
+      case (?rest) { hashFork(labeled_hash, hashT(rest)); };
     };
 
     ? (#prefix {
@@ -226,7 +228,7 @@ module {
           case (?t2) {
             ? (#fork {
               interval = i;
-              hash = h3("\10ic-hashtree-fork", hashT(t1), hashT(t2));
+              hash = hashFork(hashT(t1), hashT(t2));
               left = t1;
               right = t2;
             })
@@ -539,9 +541,19 @@ module {
   /// sending them out, make sure to wrap your tree hash with `hashUnderLabel`
   /// before passing them to `CertifiedData.set`.
   public func hashUnderLabel(l : Blob, h : Hash) : Hash {
-    h3("\13ic-hashtree-labeled", l, h);
+    hashLabeled(l, h);
   };
 
+  /// We can reconstruct the root witness from a witness
+  public func reconstruct(w: Witness) : Hash {
+    switch(w){
+      case(#pruned(prunedHash)){ prunedHash };
+      case(#empty){ hashEmpty() };
+      case(#leaf(v)){ hashLeaf(v) };
+      case(#labeled(k,w)){ hashLabeled(k, reconstruct w); };
+      case(#fork(l,r)){ hashFork(reconstruct(l), reconstruct(r)) };
+    };
+  };
 
   /// The return type of `structure`
   public type RawTree = {
