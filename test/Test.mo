@@ -1,9 +1,12 @@
 import M "mo:matchers/Matchers";
 import S "mo:matchers/Suite";
 import T "mo:matchers/Testable";
+import Debug "mo:base/Debug";
+
 import Dyadic "../src/Dyadic";
 import MerkleTree "../src/MerkleTree";
-import Debug "mo:base/Debug";
+import CanisterSigs "../src/CanisterSigs";
+import ReqData "../src/ReqData";
 
 let testFindRes : T.Testable<Dyadic.FindResult> = {
    display = func (fr : Dyadic.FindResult) : Text = debug_show fr;
