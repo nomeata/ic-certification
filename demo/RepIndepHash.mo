@@ -4,6 +4,11 @@ import Iter "mo:base/Iter";
 import Blob "mo:base/Blob";
 import Debug "mo:base/Debug";
 import Text "mo:base/Text";
+import CV "mo:cbor/Value";
+import CBOR "mo:cbor/Encoder";
+import Nat64 "mo:base/Nat64";
+import Array "mo:base/Array";
+import Nat8 "mo:base/Nat8";
 
 module {
 
@@ -19,7 +24,33 @@ module {
     #map : R;
   };
 
-  public func hash_of_map(r : R) : Blob { Blob.fromArray(hash_val(#map(r))) };
+  /// Return the representation-independent hash of the given representation-independent record
+  public func hash(r : R) : Blob { Blob.fromArray(hash_val(#map(r))) };
+
+  /// Return the CBOR-encoded value (with CBOR self-describing tag)
+  public func encodeCBOR(r : R) : Blob {
+    let v : CV.Value = #majorType6{ tag = 55799; value = fromR(r) };
+    
+    switch (CBOR.encode(v)) {
+      case (#ok(a)) { Blob.fromArray(a)};
+      case (#err(e)) { Debug.trap(debug_show e) };
+    };
+  };
+
+  func fromR(r : R) : CV.Value {
+    #majorType5(Array.map<(Text,V),(CV.Value,CV.Value)>(r,
+      func ((k, v))  { (fromV(#string k), fromV(v)) }
+    ))
+  };
+  func fromV(v : V) : CV.Value {
+    switch (v) {
+      case (#blob(b))   { #majorType2(Blob.toArray(b)) };
+      case (#string(t)) { #majorType3(t) };
+      case (#nat(n))    { #majorType0(Nat64.fromNat(n)) };
+      case (#array(a))  { #majorType4(Array.map(a, fromV)) };
+      case (#map(m))    { fromR(m) };
+    }
+  };
 
   // Also see https://github.com/dfinity/ic-hs/blob/master/src/IC/HTTP/RequestId.hs
   func hash_val(v : V) : [Nat8] {
@@ -30,17 +61,30 @@ module {
 
   func encode_val(v : V) : [Nat8] {
     switch (v) {
-      case (#blob(b)) { Blob.toArray(b) };
+      case (#blob(b))   { Blob.toArray(b) };
       case (#string(t)) { Blob.toArray(Text.encodeUtf8(t)) };
-      case (#nat(n)) { Debug.trap("encode_val: TODO") };
-      case (#array(a)) { arrayConcat(Iter.map(a.vals(), hash_val)); };
-      case (#map(m)) {
+      case (#nat(n))    { leb128(n) };
+      case (#array(a))  { arrayConcat(Iter.map(a.vals(), hash_val)); };
+      case (#map(m))    {
         let entries : Buffer.Buffer<Blob> = Buffer.fromIter(Iter.map(m.vals(), func ((k : Text, v : V)) : Blob {
             Blob.fromArray(arrayConcat([ hash_val(#string(k)), hash_val(v) ].vals()));
         }));
         entries.sort(Blob.compare); // No Array.compare, so go through blob
         arrayConcat(Iter.map(entries.vals(), Blob.toArray));
       }
+    }
+  };
+
+  func leb128(nat : Nat) : [Nat8] {
+    var n = nat;
+    let buf = Buffer.Buffer<Nat8>(3);
+    loop {
+      if (n <= 127) {
+        buf.add(Nat8.fromNat(n));
+        return Buffer.toArray(buf);
+      };
+      buf.add(Nat8.fromIntWrap(n) | 0x80);
+      n /= 128;
     }
   };
 

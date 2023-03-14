@@ -23,8 +23,6 @@ import Principal "mo:base/Principal";
 import CertifiedData "mo:base/CertifiedData";
 import SHA256 "mo:sha256/SHA256";
 import MerkleTree "mo:merkle-tree/MerkleTree";
-import CV "mo:cbor/Value";
-import CBOR "mo:cbor/Encoder";
 import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Int "mo:base/Int";
@@ -32,6 +30,9 @@ import Time "mo:base/Time";
 import Nat64 "mo:base/Nat64";
 import ManagementCanister "ManagementCanister";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
+import RepIndepHash "RepIndepHash";
+import CanisterSigs "CanisterSigs";
+import Errors "mo:cbor/Errors";
 
 /*
 This actor demostrates the MerkleTree library. Its functionality is
@@ -249,40 +250,69 @@ A simple public who-am-I query method, to test request construction and signing.
   };
 
 /*
-Produce a request that can be POSTed to the IC to call the whoami function.
+In order to sign requests, we have to store them. For now, always one request.
 */
-  public query func whoami_request() : async Blob {
-    let v : CV.Value =
-      #majorType6{
-        tag = 55799;
-        value = #majorType5([
-          (#majorType3 "content", 
-            #majorType5([
-              (#majorType3 "request_type", #majorType3 "query"),
-              (#majorType3 "canister_id", #majorType2 (
-                Blob.toArray(Principal.toBlob(my_id()))
-              )),
-              (#majorType3 "method_name", #majorType3 "whoami"),
-              (#majorType3 "ingress_expiry", #majorType0 
-                (Nat64.fromIntWrap(Time.now()
-                + 3*60*1000_000_000))
-              ),
-              (#majorType3 "sender", #majorType2 (
-                Blob.toArray("\04")
-              )),
-              (#majorType3 "arg", #majorType2 (
-                Blob.toArray("DIDL\00\00")
-              ))
-            ])
-          )
-        ])
-      };
-    switch (CBOR.encode(v)) {
-      case (#ok(a)) { Blob.fromArray(a)};
-      case (#err(e)) { Debug.trap(debug_show e) };
-    };
+  type ReqData = {
+    time : Time.Time;
+    content : RepIndepHash.R;
+    request_id : Blob;
+    path : MerkleTree.Path;
+    sender_pk : Blob;
+  };
+  var current_request : ?ReqData = null;
+
+  public func prepare_whoami_request() : async () {
+    let now = Time.now();
+    let expiry = now + 3*60*1000_000_000;
+
+    let pk = CanisterSigs.publicKey(my_id(), "");
+    let id = CanisterSigs.selfAuthenticatingPrincipal(pk);
+
+    let content : RepIndepHash.R = [
+        ("request_type", #string("query")),
+        ("canister_id", #blob((Principal.toBlob(my_id())))),
+        ("method_name", #string("whoami")),
+        ("ingress_expiry", #nat(Int.abs(expiry))),
+        ("sender", #blob(Principal.toBlob(id))),
+        ("arg", #blob("DIDL\00\00"))
+    ];
+
+    // Prepare signature
+    let request_id = RepIndepHash.hash(content);
+    let sig_payload_hash = h2("\0Aic-request", request_id);
+    let path : MerkleTree.Path = ["sig", h "", sig_payload_hash];
+    mt := MerkleTree.put(mt, path, "");
+    CertifiedData.set(MerkleTree.treeHash(mt));
+
+    current_request := ?{
+      time = now;
+      content = content;
+      sender_pk = pk;
+      request_id = request_id;
+      path = path;
+    }
   };
 
+  public query func whoami_request() : async Blob {
+    switch (current_request) {
+      case null { throw (Error.reject("No request prepared")) };
+      case (?req_data) {
+        let cert = switch (CertifiedData.getCertificate()) {
+          case (?c) c;
+          case null { throw (Error.reject("No certificate available")) };
+        };
+        let witness = MerkleTree.reveal(mt, req_data.path);
+        let sig = CanisterSigs.signature(cert, witness);
+
+        let r : RepIndepHash.R = [
+          ("content", #map(req_data.content)),
+          ("sender_pubkey", #blob(req_data.sender_pk)),
+          ("sender_sig", #blob(sig))
+        ];
+        RepIndepHash.encodeCBOR(r);
+      };
+    };
+  };
 
 /* Can we submit such a request ourselves? */
   public func submit_request() : async ManagementCanister.HttpResponse {
@@ -306,9 +336,16 @@ Convenience function to implement SHA256 on Blobs rather than [Int8]
     d.write(Blob.toArray(b1));
     Blob.fromArray(d.sum());
   };
+  func h2(b1 : Blob, b2 : Blob) : Blob {
+    let d = SHA256.Digest();
+    d.write(Blob.toArray(b1));
+    d.write(Blob.toArray(b2));
+    Blob.fromArray(d.sum());
+  };
 
 /*
 Base64 encoding.
+(Is there a library around? maybe https://github.com/aviate-labs/encoding.mo?)
 */
 
   func base64(b : Blob) : Text {

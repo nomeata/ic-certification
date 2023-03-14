@@ -23,7 +23,12 @@ let additions = [
    , version = "v1.0.2"
    , repo = "https://github.com/edjcase/motoko_numbers"
    , dependencies = [] : List Text
-   }
+   },
+   { name = "sha224"
+   , repo = "https://github.com/flyq/motoko-sha224"
+   , version = "40fcbe61930c44c7accb796fedfd3aa5692afbf4"
+   , dependencies = ["base"]
+   },
 ]
 in upstream # additions
 
