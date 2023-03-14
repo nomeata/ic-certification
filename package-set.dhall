@@ -13,6 +13,16 @@ let additions = [
    , repo = "file:///home/jojo/dfinity/motoko-merkle-tree"
    , version = "58a8dbb72ec27b73e54cb54f253b84854221975f"
    , dependencies = ["base", "sha256"]
+   },
+   { name = "cbor"
+   , repo = "https://github.com/gekctek/motoko_cbor"
+   , version = "v1.0.1"
+   , dependencies = [ "xtended-numbers" ] : List Text
+   },
+   { name = "xtended-numbers"
+   , version = "v1.0.2"
+   , repo = "https://github.com/edjcase/motoko_numbers"
+   , dependencies = [] : List Text
    }
 ]
 in upstream # additions

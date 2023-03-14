@@ -23,8 +23,13 @@ import Principal "mo:base/Principal";
 import CertifiedData "mo:base/CertifiedData";
 import SHA256 "mo:sha256/SHA256";
 import MerkleTree "mo:merkle-tree/MerkleTree";
+import CV "mo:cbor/Value";
+import CBOR "mo:cbor/Encoder";
 import Debug "mo:base/Debug";
-
+import Nat "mo:base/Nat";
+import Int "mo:base/Int";
+import Time "mo:base/Time";
+import Nat64 "mo:base/Nat64";
 
 /*
 This actor demostrates the MerkleTree library. Its functionality is
@@ -235,6 +240,48 @@ value of the main page.
   };
 
 /*
+A simple public who-am-I query method, to test request construction and signing.
+*/
+  public query({caller}) func whoami() : async Text {
+    return Principal.toText(caller);
+  };
+
+/*
+Produce a request that can be POSTed to the IC to call the whoami function.
+*/
+  public query func whoami_request() : async Blob {
+    let v : CV.Value =
+      #majorType6{
+        tag = 55799;
+        value = #majorType5([
+          (#majorType3 "content", 
+            #majorType5([
+              (#majorType3 "request_type", #majorType3 "query"),
+              (#majorType3 "canister_id", #majorType2 (
+                Blob.toArray(Principal.toBlob(my_id()))
+              )),
+              (#majorType3 "method_name", #majorType3 "whoami"),
+              (#majorType3 "ingress_expiry", #majorType0 
+                (Nat64.fromIntWrap(Time.now()
+                + 3*60*1000_000_000))
+              ),
+              (#majorType3 "sender", #majorType2 (
+                Blob.toArray("\04")
+              )),
+              (#majorType3 "arg", #majorType2 (
+                Blob.toArray("DIDL\00\00")
+              ))
+            ])
+          )
+        ])
+      };
+    switch (CBOR.encode(v)) {
+      case (#ok(a)) { Blob.fromArray(a)};
+      case (#err(e)) { Debug.trap(debug_show e) };
+    };
+  };
+
+/*
 Convenience function to implement SHA256 on Blobs rather than [Int8]
 */
   func h(b1 : Blob) : Blob {
@@ -277,5 +324,6 @@ Base64 encoding.
       case null { Debug.trap("Internal error: invalid utf8")};
     }
   };
+}
 
-};
+
