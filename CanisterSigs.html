@@ -6,4 +6,11 @@
 </p></div><div class="declaration"><h4 class="function" id="selfAuthenticatingPrincipal"><code><span class="keyword">public func </span><span class="fnname">selfAuthenticatingPrincipal</span>(<span class="parameter">publicKey</span> : <a href="#type.PublicKey"><span class="type">PublicKey</span></a>) : <span class="type">Principal</span></code></h4><p><p>Derive a self-authenticating principal from a public key</p>
 </p></div><div class="declaration"><h4 class="function" id="signature"><code><span class="keyword">public func </span><span class="fnname">signature</span>(<span class="parameter">cert</span> : <span class="type">Blob</span>, <span class="parameter">witness</span> : <a href="MerkleTree.html#type.Witness"><span class="type">MerkleTree.Witness</span></a>) : <span class="type">Blob</span></code></h4><p><p>Encode the system certificate and the canister's hash tree witness
 as a Canister Signature scheme signature (CBOR-encoded)</p>
-</p></div></div></body></html>
+<p>The witness must reveal the path <code>[&quot;sigs&quot;,seed, hash_of_msg_payload]</code>.
+So for example in an update method run something like</p>
+<pre><code>let sig_payload_hash = h2(&quot;\0Aic-request&quot;, request_id);
+let path : CertTree.Path = [&quot;sig&quot;, h &quot;&quot;, sig_payload_hash];
+ct.put(path, &quot;&quot;);
+ct.setCertifiedData();</code></pre><p>and then in the query method obtain the witness and the signature using</p>
+<pre><code>let witness = ct.reveal(req_data.path);
+let sig = CanisterSigs.signature(cert, witness);</code></pre></p></div></div></body></html>
