@@ -2,7 +2,19 @@
 <html><head title="Motoko docs"><meta charset="UTF-8"/><link href="styles.css" rel="stylesheet"/></head><div class="index-container"><h1 class="index-header">Index of modules</h1><ul class="index-listing"><li class="index-item"><a class="index-item-link" href="CanisterSigs.html">CanisterSigs</a><div class="index-item-comment"><p><strong>Internet Computer Canister Signatures</strong></p>
 <p>This modules allows canister to produce signatures according to the
 “<a href="https://internetcomputer.org/docs/current/references/ic-interface-spec#canister-signatures">Canister Signature scheme</a>”.</p>
-</div></li><li class="index-item"><a class="index-item-link" href="Dyadic.html">Dyadic</a><div class="index-item-comment"><p><strong>Diadic intervals</strong></p>
+</div></li><li class="index-item"><a class="index-item-link" href="CertTree.html">CertTree</a><div class="index-item-comment"><p><strong>Imperative wrapper of MerkleTree</strong></p>
+<p>This module contains an imperative wrapper of the functional API provided by <code>MerkleTree</code>.
+This makes common usage pattern around these trees more convenient.</p>
+<p>This module defines two types:</p>
+<ul><li><p>The <code>Store</code>. This is meant to be your canister's single hash tree. It is separated
+ from the class providing functions so that it can be put in stable memory:</p>
+</li><li><p>The <code>Ops</code> class. This wraps such a <code>Store</code> and offers all the operations you expect.</p>
+</li></ul>
+
+<p>So this is the suggested idiom:</p>
+<pre><code>  stable let cert_store : CertTree.Store = CertTree.newStore();
+  let ct = CertTree.Ops(cert_store);
+  </code></pre></div></li><li class="index-item"><a class="index-item-link" href="Dyadic.html">Dyadic</a><div class="index-item-comment"><p><strong>Dyadic intervals</strong></p>
 <p>This module is mostly internal to <code>MerkleTree</code>. It is a separate module mainly to expose
 its code for the test suite without polluting the <code>MerkleTree</code> interface.</p>
 </div></li><li class="index-item"><a class="index-item-link" href="MerkleTree.html">MerkleTree</a><div class="index-item-comment"><p><strong>A merkle tree</strong></p>
@@ -16,12 +28,8 @@ let w = MerkleTree.reveals(t, [&quot;Alice&quot; : Blob, &quot;Malfoy&quot;: Blo
 <pre><code>#fork (#labeled (&quot;\3B…\43&quot;, #leaf(&quot;\00\01&quot;)), #pruned (&quot;\EB…\87&quot;))
 #fork(#labeled(&quot;\41\6C\69\63\65&quot;, #leaf(&quot;\00\01&quot;)), #labeled(&quot;\42\6F\62&quot;, #pruned(&quot;\E6…\E2&quot;)))</code></pre>
 
-<p>The witness format is compatible with
-the <a href="https://internetcomputer.org/docs/current/references/ic-interface-spec#certificate">HashTree</a> used by the Internet Computer,
-so client-side, the same logic can be used, but note</p>
-<ul><li>no CBOR encoding is provided here. The assumption is that the witnesses are transferred
- via Candid, and decoded to a data type understood by the client-side library.</li></ul>
-
+<p>The witness format is compatible with the <a href="https://internetcomputer.org/docs/current/references/ic-interface-spec#certificate">HashTree</a> used by the Internet Computer,
+so client-side, the same verification logic can be used.</p>
 <p>Revealing multiple keys at once is supported, and so is proving absence of a key.</p>
 <p>The tree branches on the bits of the keys (i.e. a patricia tree). This means that the merkle
 tree and thus the root hash is unique for a given tree. This in particular means that insertions
@@ -29,9 +37,6 @@ are efficient, and that the tree can be reconstructed from the data, independent
 insertion order.</p>
 <p>A functional API is provided (instead of an object-oriented one), so that
 the actual tree can easily be stored in stable memory.</p>
-<p>The tree-related functions are still limited, only insertion so far, no
-lookup, deletion, modification, or more fancy operations. These can be added
-when needed.</p>
 </div></li><li class="index-item"><a class="index-item-link" href="ReqData.html">ReqData</a><div class="index-item-comment"><p><strong>Internet Computer Request Data</strong></p>
 <p>This library provides functionality for the data structures encountered when interacting
 with the Internet Computer, in particularits HTTP API, certificates and canister signatures.</p>
