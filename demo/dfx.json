@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "canisters": {
+    "merkle-tree-demo": {
+      "type": "motoko",
+      "main": "main.mo"
+    }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "vessel sources",
+      "output": "build"
+    }
+  },
+  "output_env_file": ".env"
+}
