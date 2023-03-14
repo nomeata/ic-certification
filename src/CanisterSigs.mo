@@ -1,3 +1,10 @@
+/// **Internet Computer Canister Signatures**
+///
+/// This modules allows canister to produce signatures according to the
+/// “[Canister Signature scheme]”.
+///
+/// [Canister Signature scheme]: <https://internetcomputer.org/docs/current/references/ic-interface-spec#canister-signatures>
+
 import Principal "mo:base/Principal";
 import Buffer "mo:base/Buffer";
 import Nat8 "mo:base/Nat8";
@@ -9,6 +16,7 @@ import SHA224 "mo:sha224/SHA224";
 module {
   type PublicKey = Blob;
 
+  /// Calculate the DER-encoded public key for the given canister and seed
   public func publicKey(canister_id : Principal, seed : Blob) : PublicKey {
     let b = Principal.toBlob(canister_id);
     let buf = Buffer.Buffer<Nat8>(0);
@@ -18,6 +26,7 @@ module {
     wrapDer(Blob.fromArray(Buffer.toArray(buf)));
   };
 
+  /// Derive a self-authenticating principal from a public key
   public func selfAuthenticatingPrincipal(publicKey : PublicKey) : Principal {
     let buf = Buffer.Buffer<Nat8>(28+1);
     bufferAppend(buf, Blob.fromArray(SHA224.sha224(Blob.toArray(publicKey))));
@@ -43,6 +52,8 @@ module {
     for (x in b.vals()) { buf.add(x) };
   };
 
+  /// Encode the system certificate and the canister's hash tree witness
+  /// as a Canister Signature scheme signature (CBOR-encoded)
   public func signature(cert : Blob, witness : MerkleTree.Witness) : Blob {
     ReqData.encodeCBOR([
       ("certificate", #blob(cert)),

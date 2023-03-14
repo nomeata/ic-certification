@@ -1,6 +1,6 @@
-/// Diadic intervals
+/// **Diadic intervals**
 ///
-/// This module is mostly internal to `MerkleTree`. It is extraced to expose
+/// This module is mostly internal to `MerkleTree`. It is a separate module mainly to expose
 /// its code for the test suite without polluting the `MerkleTree` interface.
 
 import Debug "mo:base/Debug";
