@@ -23,39 +23,90 @@ import Principal "mo:base/Principal";
 import CertifiedData "mo:base/CertifiedData";
 import SHA256 "mo:sha256/SHA256";
 import MerkleTree "mo:merkle-tree/MerkleTree";
+import Debug "mo:base/Debug";
 
 
 /*
-The actor functionality is pretty straight forward: We store
-a string, provide an update call to set it, and we define a function
-that includes that string in the main page of our service.
+This actor demostrates the MerkleTree library. Its functionality is
+
+ * Storing a certfiable key-value store.
+ * Certified HTTP read access to it.
+ * Setting and deleting values via update calls.
+
 */
 
 actor Self {
-  stable var last_message : Text = "Nobody said anything yet.";
 
-  public shared func leave_message(msg : Text) : async () {
-    last_message := msg;
-    update_asset_hash(); // will be explained below
+/*
+We'll use the merkle tree structure also as a key value store. This may not always be the right
+thing -- if you do not want to certify the raw data directly, but only some views
+(e.g. a HTML rendering), it may make sense to keep the main data in a regular data structure.
+But here we will use it, also to exercise lookup, deletion and iteration.
+*/
+  stable var mt = MerkleTree.empty();
+
+/*
+Two public methods to modify the merkle tree.
+*/
+
+  public shared func store(key : Text, value : Text) : async () {
+    // Store key directly
+    mt := MerkleTree.put(mt, ["store", T.encodeUtf8(key)], T.encodeUtf8(value));
+    mt := MerkleTree.put(mt, ["http_assets", T.encodeUtf8("/get/" # key)], T.encodeUtf8(value));
+    update_asset_hash(?key); // will be explained below
   };
+
+  public shared func delete(key : Text) : async () {
+    mt := MerkleTree.delete(mt, ["store", T.encodeUtf8(key)]);
+    update_asset_hash(?key); // will be explained below
+  };
+
+/*
+A HTML rendering of the main page, including links to all keys:
+*/
 
   func my_id(): Principal = Principal.fromActor(Self);
 
-  func main_page(): Blob {
+  func page_template(body : Text): Blob {
     return T.encodeUtf8 (
-      "This canister demonstrates certified HTTP assets from Motoko.\n" #
-      "\n" #
-      "You can see this text at https://" # debug_show my_id() # ".ic0.app/\n" #
-      "(note, no raw!) and it will validate!\n" #
-      "\n" #
-      "And to demonstrate that this really is dynamic, you can leave a" #
-      "message at https://ic.rocks/principal/" # debug_show my_id() # "\n" #
-      "\n" #
-      "The last message submitted was:\n" #
-      last_message
+      "<html>" #
+      "<head>" #
+      "<title>IC certified assets demo</title>" #
+      "</head>" #
+      "<body>" #
+      body #
+      "</body>" #
+      "</html>"
     )
   };
 
+  func main_page(): Blob {
+    page_template(
+      "<p>This canister demonstrates certified HTTP assets from Motoko.</p>" #
+      "<p>You can see this text at <tt>https://" # debug_show my_id() # ".ic0.app/</tt> " #
+      "(note, no <tt>raw</tt> in the URL!) and it will validate!</p>" #
+      "<p>This canister is dynamic, and implements a simple key-value store. Here is the list of " #
+      "keys:</p>" #
+      "<ul>" #
+      T.join("", Iter.map(MerkleTree.labelsAt(mt, ["store"]), func(key : Blob) : Text {
+          "<li><a href='/get/" # ofUtf8(key) # "'>" # ofUtf8(key) # "</a></li>"
+      })) #
+      "</ul>" #
+      "<p>And to demonstrate that this really is dynamic, you can store and delete keys using " #
+      "<a href='https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=" # debug_show my_id() # "'>" #
+      "the Candid UI</a></p>."
+    );
+  };
+
+  func value_page(key : Text): Blob {
+    switch (MerkleTree.lookup(mt, ["store", T.encodeUtf8(key)])) {
+      case (null) { page_template("<p>Key " # key # " not found.</p>"); };
+      case (?v) { page_template(
+        "<p>Key " # key # " has value:</p>" #
+        "<pre>" # ofUtf8(v) # "</pre>"); 
+      };
+    }
+  };
 
 /*
 To serve HTTP assets, we have to define a query method called `http_request`,
@@ -79,49 +130,63 @@ worrying about the ic-certification header.
     body: Blob;
   };
 
+/*
+Simple request routing. 
+*/
   public query func http_request(req : HttpRequest) : async HttpResponse {
-    // check if / is requested
-    if (req.method == "GET" and (req.url == "/" or T.startsWith(req.url, #text "/?"))) {
-      // If so, return the main page with with right headers
-      return {
-        status_code = 200;
-        headers = [ ("content-type", "text/plain"), certification_header() ];
-        body = main_page()
-      }
-    } else {
-      // Else return an error code. Note that we cannot certify this response
-      // so a user going to https://ce7vw-haaaa-aaaai-aanva-cai.ic0.app/foo
-      // will not see the error message
-      return {
-        status_code = 404;
-        headers = [ ("content-type", "text/plain") ];
-        body = "404 Not found.\n This canister only serves /.\n"
-      }
+    if (req.method == "GET") {
+      // check if / is requested
+      if (req.url == "/") {
+        // If so, return the main page with with right headers
+        return {
+          status_code = 200;
+          headers = [ ("content-type", "text/html"), certification_header(req.url) ];
+          body = main_page()
+        }
+      };
+      switch (T.stripStart(req.url, #text "/get/")) {
+        case null {};
+        case (?key) {
+          return { status_code = 200;
+            headers = [ ("content-type", "text/html"), certification_header(req.url) ];
+            body = value_page(key);
+          }
+        }
+      };
+    };
+    // Nothing matched?
+    // Else return an error code. Note that we cannot certify this response
+    // so a user going to https://ce7vw-haaaa-aaaai-aanva-cai.ic0.app/foo
+    // will not see the error message
+    return {
+      status_code = 404;
+      headers = [ ("content-type", "text/plain") ];
+      body = "404 Not found.\n This canister only serves /.\n"
     }
   };
 
 
-
 /*
-If it weren’t for certification, this would be it. The remainder of the file deals with certification.
-
-We need to maintain a merkle tree. We store it in stable memory (but be
-careful, the tree data structure can be large with many cached hashes,
-so double-check that you are not running out of cycles when upgrading.)
-*/
-
-  stable var mt = MerkleTree.empty();
-
-/*
-We need to store a hash of the main page in the hash tree.
+We need to store a hash the rendered pages in hash tree.
 See <https://internetcomputer.org/docs/current/references/ic-interface-spec#http-gateway> for
 the specification.
 
-This function needs to be called at the end of each update call that can affect the main page.
+So this function needs to be called whenever some output changes.
+
+In this demo, when a key is deleted, we actually certify the “key not there” page.
+This is not good for production, because the hash tree will ever grow.
 */
 
-  func update_asset_hash() {
+  func update_asset_hash(ok : ?Text) {
+    // Always update main page
     mt := MerkleTree.put(mt, ["http_assets", "/"], h(main_page()));
+    // Update the page at that key
+    switch (ok) {
+      case null {};
+      case (?k) {
+        mt := MerkleTree.put(mt, ["http_assets", T.encodeUtf8("/get/" # k)], h(value_page(k)));
+      }
+    };
     // After every modification, we should update the hash.
     CertifiedData.set(MerkleTree.treeHash(mt));
   };
@@ -130,7 +195,7 @@ This function needs to be called at the end of each update call that can affect 
 We should also do this after upgrades:
 */
   system func postupgrade() {
-    update_asset_hash();
+    update_asset_hash(null);
   };
 
 /*
@@ -147,8 +212,8 @@ and a witness calculated from hash tree that reveals the hash of the current
 value of the main page.
 */
 
-  func certification_header() : HeaderField {
-    let witness = MerkleTree.reveal(mt, ["http_assets", "/"]);
+  func certification_header(url : Text) : HeaderField {
+    let witness = MerkleTree.reveal(mt, ["http_assets", T.encodeUtf8(url)]);
     let encoded = MerkleTree.encodeWitness(witness);
     let cert = switch (CertifiedData.getCertificate()) {
       case (?c) c;
@@ -203,6 +268,14 @@ Base64 encoding.
           # (if (3*i+2 >= bytes.size()) { "=" } else { base64_chars[Nat8.toNat(c4)] });
     };
     return out
+  };
+
+  // We put the blobs in the tree, we know they are valid
+  func ofUtf8(b: Blob) : Text {
+    switch (T.decodeUtf8(b)){
+      case (?t) t;
+      case null { Debug.trap("Internal error: invalid utf8")};
+    }
   };
 
 };
