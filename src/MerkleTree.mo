@@ -16,12 +16,8 @@
 /// #fork(#labeled("\41\6C\69\63\65", #leaf("\00\01")), #labeled("\42\6F\62", #pruned("\E6…\E2")))
 /// ```
 ///
-/// The witness format is compatible with
-/// the [HashTree] used by the Internet Computer,
-/// so client-side, the same logic can be used, but note
-///
-///  * no CBOR encoding is provided here. The assumption is that the witnesses are transferred
-///    via Candid, and decoded to a data type understood by the client-side library.
+/// The witness format is compatible with the [HashTree] used by the Internet Computer,
+/// so client-side, the same verification logic can be used.
 ///
 /// Revealing multiple keys at once is supported, and so is proving absence of a key.
 ///
@@ -32,10 +28,6 @@
 ///
 /// A functional API is provided (instead of an object-oriented one), so that
 /// the actual tree can easily be stored in stable memory.
-///
-/// The tree-related functions are still limited, only insertion so far, no
-/// lookup, deletion, modification, or more fancy operations. These can be added
-/// when needed.
 ///
 /// [HashTree]: <https://internetcomputer.org/docs/current/references/ic-interface-spec#certificate>
 
@@ -154,6 +146,7 @@ module {
   };
 
   /// Looking up a value at a key
+  ///
   /// This will return `null` if the key does not exist, or if 
   /// there is a subtree (and not a value) at that key.
   public func lookup(t : Tree, ks : Path) : ?Value {
@@ -196,7 +189,6 @@ module {
   };
 
   // Now on the real T (the non-empty one-level tree)
-
 
   func hashT(t : T) : Hash {
     switch t {

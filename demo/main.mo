@@ -32,7 +32,7 @@ import ExperimentalCycles "mo:base/ExperimentalCycles";
 import CBOR "mo:cbor/Decoder";
 
 // These could import from mo:merkle-tree if this was in a separate repository
-import MerkleTree "../src/MerkleTree";
+import CertTree "../src/CertTree";
 import ReqData "../src/ReqData";
 import CanisterSigs "../src/CanisterSigs";
 
@@ -48,12 +48,14 @@ This actor demostrates the MerkleTree library. Its functionality is
 actor Self {
 
 /*
-We'll use the merkle tree structure also as a key value store. This may not always be the right
-thing -- if you do not want to certify the raw data directly, but only some views
-(e.g. a HTML rendering), it may make sense to keep the main data in a regular data structure.
-But here we will use it, also to exercise lookup, deletion and iteration.
+We'll use the merkle tree structure also as a key-value store for our main data.
+This may not always be the right thing -- if you do not want to certify the raw
+data directly, but only some views (e.g. a HTML rendering), it may make sense to
+keep the main data in a regular data structure.  But here we will use it, also
+to exercise lookup, deletion and iteration.
 */
-  stable var mt = MerkleTree.empty();
+  stable let cert_store : CertTree.Store = CertTree.newStore();
+  let ct = CertTree.Ops(cert_store);
 
 /*
 Two public methods to modify the merkle tree.
@@ -61,13 +63,13 @@ Two public methods to modify the merkle tree.
 
   public shared func store(key : Text, value : Text) : async () {
     // Store key directly
-    mt := MerkleTree.put(mt, ["store", T.encodeUtf8(key)], T.encodeUtf8(value));
-    mt := MerkleTree.put(mt, ["http_assets", T.encodeUtf8("/get/" # key)], T.encodeUtf8(value));
+    ct.put(["store", T.encodeUtf8(key)], T.encodeUtf8(value));
+    ct.put(["http_assets", T.encodeUtf8("/get/" # key)], T.encodeUtf8(value));
     update_asset_hash(?key); // will be explained below
   };
 
   public shared func delete(key : Text) : async () {
-    mt := MerkleTree.delete(mt, ["store", T.encodeUtf8(key)]);
+    ct.delete(["store", T.encodeUtf8(key)]);
     update_asset_hash(?key); // will be explained below
   };
 
@@ -98,7 +100,7 @@ A HTML rendering of the main page, including links to all keys:
       "<p>This canister is dynamic, and implements a simple key-value store. Here is the list of " #
       "keys:</p>" #
       "<ul>" #
-      T.join("", Iter.map(MerkleTree.labelsAt(mt, ["store"]), func(key : Blob) : Text {
+      T.join("", Iter.map(ct.labelsAt(["store"]), func(key : Blob) : Text {
           "<li><a href='/get/" # ofUtf8(key) # "'>" # ofUtf8(key) # "</a></li>"
       })) #
       "</ul>" #
@@ -109,7 +111,7 @@ A HTML rendering of the main page, including links to all keys:
   };
 
   func value_page(key : Text): Blob {
-    switch (MerkleTree.lookup(mt, ["store", T.encodeUtf8(key)])) {
+    switch (ct.lookup(["store", T.encodeUtf8(key)])) {
       case (null) { page_template("<p>Key " # key # " not found.</p>"); };
       case (?v) { page_template(
         "<p>Key " # key # " has value:</p>" #
@@ -189,16 +191,16 @@ This is not good for production, because the hash tree will ever grow.
 
   func update_asset_hash(ok : ?Text) {
     // Always update main page
-    mt := MerkleTree.put(mt, ["http_assets", "/"], h(main_page()));
+    ct.put(["http_assets", "/"], h(main_page()));
     // Update the page at that key
     switch (ok) {
       case null {};
       case (?k) {
-        mt := MerkleTree.put(mt, ["http_assets", T.encodeUtf8("/get/" # k)], h(value_page(k)));
+        ct.put(["http_assets", T.encodeUtf8("/get/" # k)], h(value_page(k)));
       }
     };
     // After every modification, we should update the hash.
-    CertifiedData.set(MerkleTree.treeHash(mt));
+    ct.setCertifiedData();
   };
 
 /*
@@ -223,8 +225,8 @@ value of the main page.
 */
 
   func certification_header(url : Text) : HeaderField {
-    let witness = MerkleTree.reveal(mt, ["http_assets", T.encodeUtf8(url)]);
-    let encoded = MerkleTree.encodeWitness(witness);
+    let witness = ct.reveal(["http_assets", T.encodeUtf8(url)]);
+    let encoded = ct.encodeWitness(witness);
     let cert = switch (CertifiedData.getCertificate()) {
       case (?c) c;
       case null {
@@ -261,7 +263,7 @@ as well as deleting old requests.
     time : Time.Time;
     content : ReqData.R;
     request_id : Blob;
-    path : MerkleTree.Path;
+    path : CertTree.Path;
     sender_pk : Blob;
   };
   var current_request : ?ReqData = null;
@@ -285,10 +287,10 @@ as well as deleting old requests.
     // Prepare signature
     let request_id = ReqData.hash(content);
     let sig_payload_hash = h2("\0Aic-request", request_id);
-    let path : MerkleTree.Path = ["sig", h "", sig_payload_hash];
-    mt := MerkleTree.delete(mt, ["sig"]); // bluntly cleaning up old entries
-    mt := MerkleTree.put(mt, path, "");
-    CertifiedData.set(MerkleTree.treeHash(mt));
+    let path : CertTree.Path = ["sig", h "", sig_payload_hash];
+    ct.delete(["sig"]); // bluntly cleaning up old entries
+    ct.put(path, "");
+    ct.setCertifiedData();
 
     current_request := ?{
       time = now;
@@ -307,7 +309,7 @@ as well as deleting old requests.
           case (?c) c;
           case null { throw (Error.reject("No certificate available")) };
         };
-        let witness = MerkleTree.reveal(mt, req_data.path);
+        let witness = ct.reveal(req_data.path);
         let sig = CanisterSigs.signature(cert, witness);
 
         let r : ReqData.R = [
