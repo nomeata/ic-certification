@@ -45,6 +45,7 @@
             ]))
           pkgs.ghcid
           dfx
+          pkgs.dhall
         ];
       };
     };

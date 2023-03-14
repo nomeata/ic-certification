@@ -54,6 +54,20 @@ module {
 
   /// Encode the system certificate and the canister's hash tree witness
   /// as a Canister Signature scheme signature (CBOR-encoded)
+  ///
+  /// The witness must reveal the path `["sigs",seed, hash_of_msg_payload]`.
+  /// So for example in an update method run something like
+  /// ```
+  /// let sig_payload_hash = h2("\0Aic-request", request_id);
+  /// let path : CertTree.Path = ["sig", h "", sig_payload_hash];
+  /// ct.put(path, "");
+  /// ct.setCertifiedData();
+  /// ```
+  /// and then in the query method obtain the witness and the signature using
+  /// ```
+  /// let witness = ct.reveal(req_data.path);
+  /// let sig = CanisterSigs.signature(cert, witness);
+  /// ```
   public func signature(cert : Blob, witness : MerkleTree.Witness) : Blob {
     ReqData.encodeCBOR([
       ("certificate", #blob(cert)),
@@ -70,4 +84,5 @@ module {
       case (#pruned(h))    { #array([#nat(4), #blob(h)])};
     }
   };
+
 }
