@@ -6,6 +6,7 @@
 import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Nat8 "mo:base/Nat8";
+import Array "mo:base/Array";
 
 module {
 
@@ -17,6 +18,20 @@ module {
 
   public func singleton(p : Prefix) : Interval {
     return { prefix = p; len = p.size() * 8};
+  };
+
+  /// Smart constructor. Normalizes the prefix by setting all bits beyond len to zero.
+  public func mk(p : Prefix, i : IntervalLength) : Interval {
+    if (i % 8 != 0 and i / 8 < p.size() ) {
+      let byte = p[i/8];
+      let mask = 0xff >> Nat8.fromNat(i);
+      if (byte & mask != 0) {
+        let a = Array.thaw<Nat8>(p);
+        a[i/8] := byte & ^mask;
+        return { prefix = Array.freeze(a); len = i}
+      }
+    };
+    return { prefix = p; len = i};
   };
 
   public type FindResult =

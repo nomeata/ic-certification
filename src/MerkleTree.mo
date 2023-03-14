@@ -297,10 +297,10 @@ module {
   func modifyT(t : T, k : Key, p : Prefix, f : LabeledTree -> LabeledTree) : ?T {
     switch (Dyadic.find(p, intervalT(t))) {
       case (#before(i)) {
-        mkFork({ prefix = p; len = i }, mkLabel(k, p, f (#subtree null)), ? t)
+        mkFork(Dyadic.mk(p, i), mkLabel(k, p, f (#subtree null)), ? t)
       };
       case (#after(i)) {
-        mkFork({ prefix = p; len = i }, ? t, mkLabel(k, p, f (#subtree null)))
+        mkFork(Dyadic.mk(p, i), ? t, mkLabel(k, p, f (#subtree null)))
       };
       case (#needle_is_prefix) {
         mkPrefix(k,p,f (#subtree null), ?t)
