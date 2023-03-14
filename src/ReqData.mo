@@ -1,3 +1,13 @@
+/// **Internet Computer Request Data**
+///
+/// This library provides functionality for the data structures encountered when interacting
+/// with the Internet Computer, in particularits HTTP API, certificates and canister signatures.
+///
+/// This contains the generic functionality: A data type `R` for such values,
+/// CBOR encoding (`encodeCBOR`) and the “[Representation-independent hash[” (`hash`).
+///
+/// [Representation-independent hash]: <https://internetcomputer.org/docs/current/references/ic-interface-spec#hash-of-map>
+
 import SHA256 "mo:sha256/SHA256";
 import Buffer "mo:base/Buffer";
 import Iter "mo:base/Iter";
@@ -14,8 +24,10 @@ module {
 
   type Hash = Blob;
 
-  // https://internetcomputer.org/docs/current/references/ic-interface-spec/#hash-of-map
+  /// A generic record or map of value
   public type R = [(Text, V)];
+
+  /// A structured value
   public type V = {
     #blob : Blob;
     #string : Text;
@@ -24,10 +36,10 @@ module {
     #map : R;
   };
 
-  /// Return the representation-independent hash of the given representation-independent record
+  /// Calculate the representation-independent hash
   public func hash(r : R) : Blob { Blob.fromArray(hash_val(#map(r))) };
 
-  /// Return the CBOR-encoded value (with CBOR self-describing tag)
+  /// CBOR-encode the value (including the CBOR self-describing tag)
   public func encodeCBOR(r : R) : Blob {
     let v : CV.Value = #majorType6{ tag = 55799; value = fromR(r) };
     

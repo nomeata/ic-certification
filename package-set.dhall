@@ -8,12 +8,6 @@ let additions = [
    , version = "90cbfc3b6c131767027fdd910393a5766208142c"
    , dependencies = ["base"]
    },
-   { name = "merkle-tree"
-   -- TODO: How to refer to a local directory?
-   , repo = "file:///home/jojo/dfinity/motoko-merkle-tree"
-   , version = "58a8dbb72ec27b73e54cb54f253b84854221975f"
-   , dependencies = ["base", "sha256"]
-   },
    { name = "cbor"
    , repo = "https://github.com/gekctek/motoko_cbor"
    , version = "v1.0.1"

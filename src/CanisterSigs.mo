@@ -2,8 +2,8 @@ import Principal "mo:base/Principal";
 import Buffer "mo:base/Buffer";
 import Nat8 "mo:base/Nat8";
 import Blob "mo:base/Blob";
-import MerkleTree "mo:merkle-tree/MerkleTree";
-import RepIndepHash "RepIndepHash";
+import MerkleTree "MerkleTree";
+import ReqData "ReqData";
 import SHA224 "mo:sha224/SHA224";
 
 module {
@@ -44,13 +44,13 @@ module {
   };
 
   public func signature(cert : Blob, witness : MerkleTree.Witness) : Blob {
-    RepIndepHash.encodeCBOR([
+    ReqData.encodeCBOR([
       ("certificate", #blob(cert)),
       ("tree", repOfWitness(witness))
     ])
   } ;
 
-  func repOfWitness(w : MerkleTree.Witness) : RepIndepHash.V {
+  func repOfWitness(w : MerkleTree.Witness) : ReqData.V {
     switch(w) {
       case (#empty)        { #array([#nat(0)]) };
       case (#fork(l,r))    { #array([#nat(1), repOfWitness(l), repOfWitness(r)]) };

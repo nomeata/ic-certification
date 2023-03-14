@@ -22,7 +22,6 @@ import Buffer "mo:base/Buffer";
 import Principal "mo:base/Principal";
 import CertifiedData "mo:base/CertifiedData";
 import SHA256 "mo:sha256/SHA256";
-import MerkleTree "mo:merkle-tree/MerkleTree";
 import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Int "mo:base/Int";
@@ -30,9 +29,12 @@ import Time "mo:base/Time";
 import Nat64 "mo:base/Nat64";
 import ManagementCanister "ManagementCanister";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
-import RepIndepHash "RepIndepHash";
-import CanisterSigs "CanisterSigs";
 import CBOR "mo:cbor/Decoder";
+
+// These could import from mo:merkle-tree if this was in a separate repository
+import MerkleTree "../src/MerkleTree";
+import ReqData "../src/ReqData";
+import CanisterSigs "../src/CanisterSigs";
 
 /*
 This actor demostrates the MerkleTree library. Its functionality is
@@ -257,7 +259,7 @@ as well as deleting old requests.
 */
   type ReqData = {
     time : Time.Time;
-    content : RepIndepHash.R;
+    content : ReqData.R;
     request_id : Blob;
     path : MerkleTree.Path;
     sender_pk : Blob;
@@ -271,7 +273,7 @@ as well as deleting old requests.
     let pk = CanisterSigs.publicKey(my_id(), "");
     let id = CanisterSigs.selfAuthenticatingPrincipal(pk);
 
-    let content : RepIndepHash.R = [
+    let content : ReqData.R = [
         ("request_type", #string("query")),
         ("canister_id", #blob((Principal.toBlob(my_id())))),
         ("method_name", #string("whoami")),
@@ -281,7 +283,7 @@ as well as deleting old requests.
     ];
 
     // Prepare signature
-    let request_id = RepIndepHash.hash(content);
+    let request_id = ReqData.hash(content);
     let sig_payload_hash = h2("\0Aic-request", request_id);
     let path : MerkleTree.Path = ["sig", h "", sig_payload_hash];
     mt := MerkleTree.delete(mt, ["sig"]); // bluntly cleaning up old entries
@@ -308,12 +310,12 @@ as well as deleting old requests.
         let witness = MerkleTree.reveal(mt, req_data.path);
         let sig = CanisterSigs.signature(cert, witness);
 
-        let r : RepIndepHash.R = [
+        let r : ReqData.R = [
           ("content", #map(req_data.content)),
           ("sender_pubkey", #blob(req_data.sender_pk)),
           ("sender_sig", #blob(sig))
         ];
-        RepIndepHash.encodeCBOR(r);
+        ReqData.encodeCBOR(r);
       };
     };
   };
@@ -337,7 +339,7 @@ for the responses and send them off.
   public func whoami_request_as_update() : async Blob {
     let now = Time.now();
     let expiry = now + 3*60*1000_000_000;
-    let content : RepIndepHash.R = [
+    let content : ReqData.R = [
       ("request_type", #string("query")),
       ("canister_id", #blob((Principal.toBlob(my_id())))),
       ("method_name", #string("whoami_request")),
@@ -345,8 +347,8 @@ for the responses and send them off.
       ("sender", #blob("\04")),
       ("arg", #blob("DIDL\00\00"))
     ];
-    let r : RepIndepHash.R = [ ("content", #map(content)) ];
-    let body = RepIndepHash.encodeCBOR(r);
+    let r : ReqData.R = [ ("content", #map(content)) ];
+    let body = ReqData.encodeCBOR(r);
     ExperimentalCycles.add(1_000_000_000);
     let resp = await ManagementCanister.ic.http_request(
       { url = "https://ic0.app/api/v2/canister/" # Principal.toText(my_id()) # "/query";
@@ -374,7 +376,7 @@ for the responses and send them off.
   func unsigned_whoami_request() : Blob {
     let now = Time.now();
     let expiry = now + 3*60*1000_000_000;
-    let content : RepIndepHash.R = [
+    let content : ReqData.R = [
         ("request_type", #string("query")),
         ("canister_id", #blob((Principal.toBlob(my_id())))),
         ("method_name", #string("whoami")),
@@ -382,8 +384,8 @@ for the responses and send them off.
         ("sender", #blob("\04")),
         ("arg", #blob("DIDL\00\00"))
     ];
-    let r : RepIndepHash.R = [ ("content", #map(content)) ];
-    RepIndepHash.encodeCBOR(r);
+    let r : ReqData.R = [ ("content", #map(content)) ];
+    ReqData.encodeCBOR(r);
   };
 
   public func submit_request() : async ManagementCanister.HttpResponse {

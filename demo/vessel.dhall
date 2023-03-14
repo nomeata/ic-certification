@@ -1,4 +1,4 @@
 {
-  dependencies = [ "base", "sha256", "sha224", "merkle-tree", "cbor" ],
+  dependencies = [ "base", "sha256", "sha224", "cbor" ],
   compiler = None Text
 }
