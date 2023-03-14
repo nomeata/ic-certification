@@ -1,6 +1,9 @@
 <!DOCTYPE html>
-<html><head title="Motoko docs"><meta charset="UTF-8"/><link href="styles.css" rel="stylesheet"/></head><div class="index-container"><h1 class="index-header">Index of modules</h1><ul class="index-listing"><li class="index-item"><a class="index-item-link" href="Dyadic.html">Dyadic</a><div class="index-item-comment"><p>Diadic intervals</p>
-<p>This module is mostly internal to <code>MerkleTree</code>. It is extraced to expose
+<html><head title="Motoko docs"><meta charset="UTF-8"/><link href="styles.css" rel="stylesheet"/></head><div class="index-container"><h1 class="index-header">Index of modules</h1><ul class="index-listing"><li class="index-item"><a class="index-item-link" href="CanisterSigs.html">CanisterSigs</a><div class="index-item-comment"><p><strong>Internet Computer Canister Signatures</strong></p>
+<p>This modules allows canister to produce signatures according to the
+“<a href="https://internetcomputer.org/docs/current/references/ic-interface-spec#canister-signatures">Canister Signature scheme</a>”.</p>
+</div></li><li class="index-item"><a class="index-item-link" href="Dyadic.html">Dyadic</a><div class="index-item-comment"><p><strong>Diadic intervals</strong></p>
+<p>This module is mostly internal to <code>MerkleTree</code>. It is a separate module mainly to expose
 its code for the test suite without polluting the <code>MerkleTree</code> interface.</p>
 </div></li><li class="index-item"><a class="index-item-link" href="MerkleTree.html">MerkleTree</a><div class="index-item-comment"><p><strong>A merkle tree</strong></p>
 <p>This library provides a simple merkle tree data structure for Motoko.
@@ -29,4 +32,9 @@ the actual tree can easily be stored in stable memory.</p>
 <p>The tree-related functions are still limited, only insertion so far, no
 lookup, deletion, modification, or more fancy operations. These can be added
 when needed.</p>
+</div></li><li class="index-item"><a class="index-item-link" href="ReqData.html">ReqData</a><div class="index-item-comment"><p><strong>Internet Computer Request Data</strong></p>
+<p>This library provides functionality for the data structures encountered when interacting
+with the Internet Computer, in particularits HTTP API, certificates and canister signatures.</p>
+<p>This contains the generic functionality: A data type <code>R</code> for such values,
+CBOR encoding (<code>encodeCBOR</code>) and the “[Representation-independent hash[” (<code>hash</code>).</p>
 </div></li></ul></div></html>
