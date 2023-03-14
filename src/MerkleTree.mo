@@ -44,6 +44,7 @@ import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
 import Blob "mo:base/Blob";
 import Buffer "mo:base/Buffer";
+import Stack "mo:base/Stack";
 import Nat8 "mo:base/Nat8";
 import SHA256 "mo:sha256/SHA256";
 import Dyadic "Dyadic";
@@ -152,6 +153,32 @@ module {
     deleteIter(t, ks.vals());
   };
 
+  /// Looking up a value at a key
+  /// This will return `null` if the key does not exist, or if 
+  /// there is a subtree (and not a value) at that key.
+  public func lookup(t : Tree, ks : Path) : ?Value {
+    switch (lookupIter(t, ks.vals())) {
+      case (#leaf(v)) { ?(v.value) };
+      case (#subtree(_)) { null };
+    };
+  };
+
+  /// Lookup up all labels at a key. Returns an iterator, so you can use it with
+  /// ```
+  /// for (k in MerkleTree.labelsAt(t, ["some", "path"))) { … }
+  /// ```
+  public func labelsAt(t : Tree, ks : Path) : Iter.Iter<Key> {
+    switch (lookupIter(t, ks.vals())) {
+      case (#leaf(_)) { empty_iter };
+      case (#subtree(null)) { empty_iter };
+      case (#subtree(?t)) { iterLabels(t)};
+    }
+  };
+
+  let empty_iter : Iter.Iter<None> = {
+    next = func () : ?None { null };
+  };
+
   // Labeled tree (the multi-level trees)
 
   func labeledTreeHash(s : LabeledTree) : Hash {
@@ -255,7 +282,7 @@ module {
       };
     }
   };
-  
+
   // Modification (in particular insertion)
 
   func modifyLabeledTree(t : LabeledTree, k : Key, f : LabeledTree -> LabeledTree) : LabeledTree {
@@ -331,6 +358,79 @@ module {
     }
   };
 
+  // Querying
+
+  func lookupIter(t : LabeledTree, ki : Iter.Iter<Key>) : LabeledTree {
+    switch (ki.next()) {
+      case (null) { t };
+      case (?k) { lookupIter(lookupLabel(t, Blob.toArray(k)), ki) };
+    }
+  };
+  
+  func lookupLabel(t : LabeledTree, p : Prefix) : LabeledTree {
+    switch (t) {
+      case (#leaf _) { #subtree(null) };
+      case (#subtree(t)) { lookupOT(t, p) };
+    };
+  };
+
+  func lookupOT(t : OT, p : Prefix) : LabeledTree {
+    switch (t) {
+      case null { #subtree(null) };
+      case (?t) { lookupT(t, p) };
+    };
+  };
+
+  func lookupT(t : T, p : Prefix) : LabeledTree {
+    switch (Dyadic.find(p, intervalT(t))) {
+      case (#before(i)) { #subtree(null) };
+      case (#after(i)) { #subtree(null) };
+      case (#needle_is_prefix) { #subtree(null) };
+      case (#equal) { 
+        switch (t) {
+          case (#fork(f)) { #subtree(null); };
+          case (#prefix(n)) { n.here }; // Found it!
+        };
+      };
+      case (#in_left_half) {
+        switch (t) {
+          case (#fork(f)) { lookupT(f.left, p); };
+          case (#prefix(n)) { lookupOT(n.rest, p); };
+        };
+      };
+      case (#in_right_half) {
+        switch (t) {
+          case (#fork(f)) { lookupT(f.right, p); };
+          case (#prefix(n)) { lookupOT(n.rest, p); };
+        };
+      };
+    }
+  };
+
+  func iterLabels(t : T) : Iter.Iter<Key> {
+    let stack = Stack.Stack<T>();
+    stack.push(t);
+    { next = func () : ?Key {
+      loop {
+        switch(stack.pop()){
+          case (null) { return null };
+          case (?#fork(f)) {
+            stack.push(f.right);
+            stack.push(f.left);
+          };
+          case (?#prefix(f)) {
+            switch (f.rest) {
+              case (null) {};
+              case (?t) { stack.push(t) };
+            };
+            return (? f.key);
+          }
+        }
+      }
+    }}
+  };
+  
+  
   // Witness construction
 
   /// Create a witness that reveals the value of the key `k` in the tree `tree`.
