@@ -287,12 +287,12 @@ Produce a request that can be POSTed to the IC to call the whoami function.
 /* Can we submit such a request ourselves? */
   public func submit_request() : async ManagementCanister.HttpResponse {
     let body = await whoami_request();
-    ExperimentalCycles.add(300_000_000_000);
+    ExperimentalCycles.add(1_000_000_000);
     return await ManagementCanister.ic.http_request(
       { url = "https://ic0.app/api/v2/canister/" # Principal.toText(my_id()) # "/query";
         headers = [ {name = "content-type"; value = "application/cbor"} ];
         method = #post;
-        max_response_bytes = null;
+        max_response_bytes = ?1000;
         body = ?body;
       }
     );
