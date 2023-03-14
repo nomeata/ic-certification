@@ -16,6 +16,10 @@ module {
             method : { #get; #head; #post };
             headers: [HttpHeader];
             body : ?Blob;
+            transform : ?{
+                function : shared query ({response: HttpResponse; context : Blob}) -> async (HttpResponse);
+                context : Blob;
+            };
         } -> async HttpResponse;
    };
 

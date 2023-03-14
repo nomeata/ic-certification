@@ -32,7 +32,7 @@ import ManagementCanister "ManagementCanister";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
 import RepIndepHash "RepIndepHash";
 import CanisterSigs "CanisterSigs";
-import Errors "mo:cbor/Errors";
+import CBOR "mo:cbor/Decoder";
 
 /*
 This actor demostrates the MerkleTree library. Its functionality is
@@ -250,7 +250,10 @@ A simple public who-am-I query method, to test request construction and signing.
   };
 
 /*
-In order to sign requests, we have to store them. For now, always one request.
+In order to sign requests, we have to store them.
+For now, we simply keep track of one request; a real application
+would keep a map, with identifiers to correlate the prepare and the fetch call,
+as well as deleting old requests.
 */
   type ReqData = {
     time : Time.Time;
@@ -281,6 +284,7 @@ In order to sign requests, we have to store them. For now, always one request.
     let request_id = RepIndepHash.hash(content);
     let sig_payload_hash = h2("\0Aic-request", request_id);
     let path : MerkleTree.Path = ["sig", h "", sig_payload_hash];
+    mt := MerkleTree.delete(mt, ["sig"]); // bluntly cleaning up old entries
     mt := MerkleTree.put(mt, path, "");
     CertifiedData.set(MerkleTree.treeHash(mt));
 
@@ -293,7 +297,7 @@ In order to sign requests, we have to store them. For now, always one request.
     }
   };
 
-  public query func whoami_request() : async Blob {
+  public query func fetch_whoami_request() : async Blob {
     switch (current_request) {
       case null { throw (Error.reject("No request prepared")) };
       case (?req_data) {
@@ -314,16 +318,83 @@ In order to sign requests, we have to store them. For now, always one request.
     };
   };
 
-/* Can we submit such a request ourselves? */
+/* 
+The following is an attempt at a horrible hack to get the certificate in an update method
+(to be able to send signed requests to the IC directly).
+It uses the http_request feature of the IC with an anonymous query call to
+itself to get the certificat.
+Unfortuantely, this does not really work: http_request only works when the
+responses are equal, and that is not the case (even using a transform function).
+So users wanting canisters to sign IC requests should use an external tool to query
+for the responses and send them off. 
+*/
+  public query func strip_headers({response : ManagementCanister.HttpResponse; context : Blob})
+    : async ManagementCanister.HttpResponse {
+      //return { body = response.body; status = response.status; headers = []}
+      return { body = response.body; status = response.status; headers = []}
+  };
+
+  public func whoami_request_as_update() : async Blob {
+    let now = Time.now();
+    let expiry = now + 3*60*1000_000_000;
+    let content : RepIndepHash.R = [
+      ("request_type", #string("query")),
+      ("canister_id", #blob((Principal.toBlob(my_id())))),
+      ("method_name", #string("whoami_request")),
+      ("ingress_expiry", #nat(Int.abs(expiry))),
+      ("sender", #blob("\04")),
+      ("arg", #blob("DIDL\00\00"))
+    ];
+    let r : RepIndepHash.R = [ ("content", #map(content)) ];
+    let body = RepIndepHash.encodeCBOR(r);
+    ExperimentalCycles.add(1_000_000_000);
+    let resp = await ManagementCanister.ic.http_request(
+      { url = "https://ic0.app/api/v2/canister/" # Principal.toText(my_id()) # "/query";
+        headers = [ {name = "content-type"; value = "application/cbor"} ];
+        method = #post;
+        max_response_bytes = ?1000;
+        body = ?body;
+        transform = ?{ context = ""; function = strip_headers; };
+      }
+    );
+    if (resp.status != 200) {
+      throw (Error.reject("Self-query-call failed with status " # debug_show resp.status))
+    };
+    let v = switch (CBOR.decode(resp.body)) {
+      case (#ok(v)) v;
+      case (#err(e)) { throw (Error.reject("Could not decode body: " # debug_show e) ) };
+    };
+    throw (Error.reject(debug_show v));
+  };
+
+  /*
+  An example for sending off a query request to the IC itself
+  Only really possible with anonymous requests.
+  */
+  func unsigned_whoami_request() : Blob {
+    let now = Time.now();
+    let expiry = now + 3*60*1000_000_000;
+    let content : RepIndepHash.R = [
+        ("request_type", #string("query")),
+        ("canister_id", #blob((Principal.toBlob(my_id())))),
+        ("method_name", #string("whoami")),
+        ("ingress_expiry", #nat(Int.abs(expiry))),
+        ("sender", #blob("\04")),
+        ("arg", #blob("DIDL\00\00"))
+    ];
+    let r : RepIndepHash.R = [ ("content", #map(content)) ];
+    RepIndepHash.encodeCBOR(r);
+  };
+
   public func submit_request() : async ManagementCanister.HttpResponse {
-    let body = await whoami_request();
     ExperimentalCycles.add(1_000_000_000);
     return await ManagementCanister.ic.http_request(
       { url = "https://ic0.app/api/v2/canister/" # Principal.toText(my_id()) # "/query";
         headers = [ {name = "content-type"; value = "application/cbor"} ];
         method = #post;
         max_response_bytes = ?1000;
-        body = ?body;
+        body = ?(unsigned_whoami_request());
+        transform = ?{ context = ""; function = strip_headers; };
       }
     );
   };
