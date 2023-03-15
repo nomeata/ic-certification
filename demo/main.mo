@@ -322,6 +322,10 @@ as well as deleting old requests.
     };
   };
 
+  public query func sigManagerSize() : async Nat {
+    csm.size();
+  };
+
 /* 
 The following is an attempt at a horrible hack to get the certificate in an update method
 (to be able to send signed requests to the IC directly).

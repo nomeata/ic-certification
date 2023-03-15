@@ -20,6 +20,7 @@ import CertifiedData "mo:base/CertifiedData";
 import Error "mo:base/Error";
 import SHA256 "mo:sha256/SHA256";
 import Debug "mo:base/Debug";
+import List "mo:base/List";
 
 module {
   public type PublicKey = Blob;
@@ -183,6 +184,11 @@ module {
     public func pruneAll() {
       ct.delete(["sig"]);
     };
+
+    /// Number of unexpired signatures. Useful to inculde in metrics
+    public func size() : Nat {
+      List.size(queue.0) + List.size(queue.1);
+    }
 
   };
 
