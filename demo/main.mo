@@ -106,7 +106,9 @@ A HTML rendering of the main page, including links to all keys:
       "</ul>" #
       "<p>And to demonstrate that this really is dynamic, you can store and delete keys using " #
       "<a href='https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=" # debug_show my_id() # "'>" #
-      "the Candid UI</a></p>."
+      "the Candid UI</a>.</p>" #
+      "<p>The source of this canister can be found at " #
+      "<a href='https://github.com/nomeata/ic-certification/tree/main/demo'>https://github.com/nomeata/ic-certification/tree/main/demo</a>.</p>"
     );
   };
 
@@ -115,7 +117,7 @@ A HTML rendering of the main page, including links to all keys:
       case (null) { page_template("<p>Key " # key # " not found.</p>"); };
       case (?v) { page_template(
         "<p>Key " # key # " has value:</p>" #
-        "<pre>" # ofUtf8(v) # "</pre>"); 
+        "<pre>" # ofUtf8(v) # "</pre>");
       };
     }
   };

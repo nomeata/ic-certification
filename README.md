@@ -1,11 +1,23 @@
-# motoko-merkle-tree
+# ic-certification
 
-This library provides a simple merkle tree data structure for Motoko. It provides a key-value store, where both keys and values are of type Blob.
+This Motoko library provides functionality around “Certification”, in particular
 
-See the [Documentation of `MerkleTree`] for more information about status, features, restrictions.
+ * An labeled tree data sturcture with merkelization (`MerkleTree`) and the abilityt o
+   generate witnesses according to Internet Computer Interface Specification.
+ * Support for the “Canister Signature scheme” that builds on top of that.
+ * Utilities related to the “Implementation-independent hash” that is used,
+   among other things, for signing HTTP requests to the Internet Computer
 
-[Documentation of `MerkleTree`]: https://nomeata.github.io/motoko-merkle-tree/MerkleTree.html
+See <https://nomeata.github.io/ic-certification/> for the docuemntation of the
+current development version.
+
+The `demo/` directory contains a commented  canister demonstrating these features; it is also live
+at <https://wpsi7-7aaaa-aaaai-acpzq-cai.ic0.app/>.
+
+## Developemnt and testing
+
+TODO
 
 ## License
 
-motoko-merkle-tree is distributed under the terms of the Apache License (Version 2.0). See LICENSE for details.
+This library is distributed under the terms of the Apache License (Version 2.0). See LICENSE for details.

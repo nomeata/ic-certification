@@ -6,7 +6,7 @@
     #url = "/home/jojo/dfinity/nixpkgs-dfinity-sdk/";
     flake = false;
   };
-  description = "Development environment for motoko-merkle-tree";
+  description = "Development environment";
 
   outputs = { self, nixpkgs, dfinity-sdk }:
     let
