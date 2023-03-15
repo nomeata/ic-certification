@@ -263,10 +263,19 @@ as well as deleting old requests.
     time : Time.Time;
     content : ReqData.R;
     request_id : Blob;
-    path : CertTree.Path;
+    sig_payload_hash : Blob;
     sender_pk : Blob;
   };
   var current_request : ?ReqData = null;
+
+  /*
+  The CanisterSigManager
+  */
+  let csm = CanisterSigs.Manager(ct, null);
+
+  system func preupgrade() {
+    csm.pruneAll();
+  };
 
   public func prepare_whoami_request() : async () {
     let now = Time.now();
@@ -287,17 +296,14 @@ as well as deleting old requests.
     // Prepare signature
     let request_id = ReqData.hash(content);
     let sig_payload_hash = h2("\0Aic-request", request_id);
-    let path : CertTree.Path = ["sig", h "", sig_payload_hash];
-    ct.delete(["sig"]); // bluntly cleaning up old entries
-    ct.put(path, "");
-    ct.setCertifiedData();
+    csm.prepare("", sig_payload_hash);
 
     current_request := ?{
       time = now;
       content = content;
       sender_pk = pk;
       request_id = request_id;
-      path = path;
+      sig_payload_hash = sig_payload_hash;
     }
   };
 
@@ -305,13 +311,7 @@ as well as deleting old requests.
     switch (current_request) {
       case null { throw (Error.reject("No request prepared")) };
       case (?req_data) {
-        let cert = switch (CertifiedData.getCertificate()) {
-          case (?c) c;
-          case null { throw (Error.reject("No certificate available")) };
-        };
-        let witness = ct.reveal(req_data.path);
-        let sig = CanisterSigs.signature(cert, witness);
-
+        let sig = csm.fetch("", req_data.sig_payload_hash);
         let r : ReqData.R = [
           ("content", #map(req_data.content)),
           ("sender_pubkey", #blob(req_data.sender_pk)),
