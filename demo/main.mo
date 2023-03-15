@@ -83,10 +83,14 @@ A HTML rendering of the main page, including links to all keys:
     return T.encodeUtf8 (
       "<html>" #
       "<head>" #
+      "<meta name='viewport' content='width=device-width, initial-scale=1'>" #
+      "<link rel='stylesheet' href='https://unpkg.com/chota@latest'>" #
       "<title>IC certified assets demo</title>" #
       "</head>" #
       "<body>" #
+      "<div id='top' class='container' role='document'>" #
       body #
+      "</div>" #
       "</body>" #
       "</html>"
     )
