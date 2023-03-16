@@ -35,6 +35,7 @@ import CBOR "mo:cbor/Decoder";
 import CertTree "../src/CertTree";
 import ReqData "../src/ReqData";
 import CanisterSigs "../src/CanisterSigs";
+import MerkleTree "../src/MerkleTree";
 
 /*
 This actor demostrates the MerkleTree library. Its functionality is
@@ -56,6 +57,13 @@ to exercise lookup, deletion and iteration.
 */
   stable let cert_store : CertTree.Store = CertTree.newStore();
   let ct = CertTree.Ops(cert_store);
+
+/*
+For debugging and exploration, a way to view the tree
+*/
+  public query func get_cert_tree() : async MerkleTree.RawTree {
+    MerkleTree.structure(cert_store.tree);
+  };
 
 /*
 Two public methods to modify the merkle tree.
@@ -88,7 +96,7 @@ A HTML rendering of the main page, including links to all keys:
       "<title>IC certified assets demo</title>" #
       "</head>" #
       "<body>" #
-      "<div id='top' class='container' role='document'>" #
+      "<div class='container' role='document'>" #
       body #
       "</div>" #
       "</body>" #
@@ -210,9 +218,15 @@ This is not good for production, because the hash tree will ever grow.
   };
 
 /*
-We should also do this after upgrades:
+After upgrades, the view functions might have changed. So lets recompute all of them.
+This may not scale!
 */
   system func postupgrade() {
+    ct.delete(["http_assets"]);  // forget about old keys
+    for (rk in ct.labelsAt(["store"])) {
+        let k = ofUtf8(rk);
+        ct.put(["http_assets", T.encodeUtf8("/get/" # k)], h(value_page(k)));
+    };
     update_asset_hash(null);
   };
 
