@@ -16,7 +16,11 @@ at <https://wpsi7-7aaaa-aaaai-acpzq-cai.ic0.app/>.
 
 ## Installation
 
-TODO
+Using [MOPS](https://mops.one/ic-certification):
+
+    mops add ic-certification
+
+or using [vessel](https://github.com/dfinity/vessel).
 
 ## Developemnt and testing
 
