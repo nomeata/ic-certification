@@ -6,3 +6,5 @@ tmp.mo
 tmp.wasm
 result
 .direnv
+
+.mops/

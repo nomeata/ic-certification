@@ -1,0 +1,11 @@
+[package]
+name = "ic-certification"
+version = "0.1"
+description = "Certification and Canister Signatures"
+repository = "https://github.com/nomeata/ic-certification"
+
+[dependencies]
+base = "0.7.4"
+sha256 = "https://github.com/enzoh/motoko-sha#9e2468f51ef060ae04fde8d573183191bda30189"
+cbor = "https://github.com/gekctek/motoko_cbor#v1.0.1"
+sha224 = "https://github.com/flyq/motoko-sha224#82e0aa1a77a8c0a2f98332b59ffc242d820e62cb"
