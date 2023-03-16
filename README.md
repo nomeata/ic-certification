@@ -38,3 +38,13 @@ The other (less hairy) modules are exercised thoroughly.
 ## License
 
 This library is distributed under the terms of the Apache License (Version 2.0). See LICENSE for details.
+
+## Funding
+
+This library was initially incentivized by [ICDevs](https://icdevs.org/). You can view more about
+the bounty on the
+[forum](https://forum.dfinity.org/t/open-icdev-org-bounty-36-signing-tree-and-der-encoding-motoko-10-000/17889)
+or [website](https://icdevs.org/bounties/2023/01/09/36-Signing-Tree-and-DER-Encoding.html).
+The bounty was funded by The ICDevs.org community and the DFINITY
+Foundation and the award was paid to TODO.
+If you use this library and gain value from it, please consider a donation to ICDevs.
