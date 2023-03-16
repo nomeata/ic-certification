@@ -1,9 +1,8 @@
 {
   inputs.nixpkgs.url = github:NixOS/nixpkgs/master;
   inputs.dfinity-sdk = {
-#url = "github:paulyoung/nixpkgs-dfinity-sdk";
+    #url = "github:paulyoung/nixpkgs-dfinity-sdk";
     url = "github:nomeata/nixpkgs-dfinity-sdk/joachim/0.13.1";
-#url = "/home/jojo/dfinity/nixpkgs-dfinity-sdk/";
     flake = false;
   };
 
