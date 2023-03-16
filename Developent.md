@@ -1,7 +1,7 @@
 ## Developemnt and testing
 
-A `nix` based development environment installing `dfx` and `vessel` and Haskell is provided; just
-run `nix develop` to enter it.
+A `nix` based development environment installing `dfx`, `vessel`, `mops` and
+Haskell is provided; just run `nix develop` to enter it.
 
 Run `make docs` to generate the documentation locally. Via github actions, this is also available
 at <https://nomeata.github.io/ic-certification/>.
