@@ -1,7 +1,7 @@
 /// **Internet Computer Request Data**
 ///
 /// This library provides functionality for the data structures encountered when interacting
-/// with the Internet Computer, in particularits HTTP API, certificates and canister signatures.
+/// with the Internet Computer, in particular its HTTP API, certificates and canister signatures.
 ///
 /// This contains the generic functionality: A data type `R` for such values,
 /// CBOR encoding (`encodeCBOR`) and the “[Representation-independent hash[” (`hash`).
