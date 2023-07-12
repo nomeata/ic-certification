@@ -1,6 +1,6 @@
 [package]
 name = "ic-certification"
-version = "0.1.0"
+version = "0.1.1"
 description = "Certification and Canister Signatures"
 repository = "https://github.com/nomeata/ic-certification"
 
