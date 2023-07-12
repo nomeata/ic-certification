@@ -2,6 +2,7 @@ import M "mo:matchers/Matchers";
 import S "mo:matchers/Suite";
 import T "mo:matchers/Testable";
 import Debug "mo:base/Debug";
+import Array "mo:base/Array";
 
 import Dyadic "../src/Dyadic";
 import MerkleTree "../src/MerkleTree";
@@ -21,6 +22,13 @@ func findRes(fr: Dyadic.FindResult) : T.TestableItem<Dyadic.FindResult> {
 };
 
 let suite = S.suite("Dyadic.find", [
+    S.test("issue8",
+      Dyadic.find(
+        [0],
+        Dyadic.mk(Array.tabulate<Nat8>(33,func(_){1}), 257),
+      ),
+      M.equals(findRes(#before(7)))
+    ),
     S.test("test_short",
       Dyadic.find(
         [0],

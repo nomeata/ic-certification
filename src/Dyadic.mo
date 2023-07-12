@@ -24,7 +24,7 @@ module {
   public func mk(p : Prefix, i : IntervalLength) : Interval {
     if (i % 8 != 0 and i / 8 < p.size() ) {
       let byte = p[i/8];
-      let mask = 0xff >> Nat8.fromNat(i);
+      let mask = 0xff >> Nat8.fromNat(i % 8);
       if (byte & mask != 0) {
         let a = Array.thaw<Nat8>(p);
         a[i/8] := byte & ^mask;
@@ -36,9 +36,9 @@ module {
 
   public type FindResult =
     { #before : IntervalLength;
-      #needle_is_prefix; 
+      #needle_is_prefix;
       #equal;
-      #in_left_half;           
+      #in_left_half;
       #in_right_half;
       #after : IntervalLength;
     };
