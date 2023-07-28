@@ -38,7 +38,7 @@ import Blob "mo:base/Blob";
 import Buffer "mo:base/Buffer";
 import Stack "mo:base/Stack";
 import Nat8 "mo:base/Nat8";
-import SHA256 "mo:sha256/SHA256";
+import SHA256 "mo:sha2/Sha256";
 import Dyadic "Dyadic";
 
 module {
@@ -94,20 +94,20 @@ module {
 
   // Hash-related functions
   func h(b : Blob) : Hash {
-    Blob.fromArray(SHA256.sha256(Blob.toArray(b)));
+    SHA256.fromBlob(#sha256, b);
   };
   func h2(b1 : Blob, b2 : Blob) : Hash {
-    let d = SHA256.Digest();
-    d.write(Blob.toArray(b1));
-    d.write(Blob.toArray(b2));
-    Blob.fromArray(d.sum());
+    let d = SHA256.Digest(#sha256);
+    d.writeBlob(b1);
+    d.writeBlob(b2);
+    d.sum();
   };
   func h3(b1 : Blob, b2 : Blob, b3 : Blob) : Hash {
-    let d = SHA256.Digest();
-    d.write(Blob.toArray(b1));
-    d.write(Blob.toArray(b2));
-    d.write(Blob.toArray(b3));
-    Blob.fromArray(d.sum());
+    let d = SHA256.Digest(#sha256);
+    d.writeBlob(b1);
+    d.writeBlob(b2);
+    d.writeBlob(b3);
+    d.sum();
   };
 
   /// The hashing function for the hash tree

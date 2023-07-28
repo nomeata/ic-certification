@@ -12,13 +12,12 @@ import Nat8 "mo:base/Nat8";
 import Blob "mo:base/Blob";
 import MerkleTree "MerkleTree";
 import ReqData "ReqData";
-import SHA224 "mo:sha224/SHA224";
 import CertTree "CertTree";
 import Time "mo:base/Time";
 import Deque "mo:base/Deque";
 import CertifiedData "mo:base/CertifiedData";
 import Error "mo:base/Error";
-import SHA256 "mo:sha256/SHA256";
+import SHA256 "mo:sha2/Sha256";
 import Debug "mo:base/Debug";
 import List "mo:base/List";
 
@@ -41,7 +40,7 @@ module {
   /// Derive a self-authenticating principal from a public key
   public func selfAuthenticatingPrincipal(publicKey : PublicKey) : Principal {
     let buf = Buffer.Buffer<Nat8>(28+1);
-    bufferAppend(buf, Blob.fromArray(SHA224.sha224(Blob.toArray(publicKey))));
+    bufferAppend(buf, SHA256.fromBlob(#sha224, publicKey));
     buf.add(0x02);
     Principal.fromBlob(Blob.fromArray(Buffer.toArray(buf)));
   };
@@ -194,7 +193,7 @@ module {
 
   // Hash-related functions
   func h(b : Blob) : Blob {
-      Blob.fromArray(SHA256.sha256(Blob.toArray(b)));
+      SHA256.fromBlob(#sha256, b)
   };
 
 }

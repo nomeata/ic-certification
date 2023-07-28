@@ -8,7 +8,7 @@
 ///
 /// [Representation-independent hash]: <https://internetcomputer.org/docs/current/references/ic-interface-spec#hash-of-map>
 
-import SHA256 "mo:sha256/SHA256";
+import SHA256 "mo:sha2/Sha256";
 import Buffer "mo:base/Buffer";
 import Iter "mo:base/Iter";
 import Blob "mo:base/Blob";
@@ -66,9 +66,7 @@ module {
 
   // Also see https://github.com/dfinity/ic-hs/blob/master/src/IC/HTTP/RequestId.hs
   func hash_val(v : V) : [Nat8] {
-    let d = SHA256.Digest();
-    d.write(encode_val(v));
-    d.sum();
+    encode_val(v) |> SHA256.fromArray(#sha256, _) |> Blob.toArray _
   };
 
   func encode_val(v : V) : [Nat8] {
@@ -101,9 +99,7 @@ module {
   };
 
   func h(b1 : Blob) : Blob {
-    let d = SHA256.Digest();
-    d.write(Blob.toArray(b1));
-    Blob.fromArray(d.sum());
+    SHA256.fromBlob(#sha256, b1);
   };
 
   // Missing in standard library? Faster implementation?
