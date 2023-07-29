@@ -95,7 +95,7 @@ propSHA256 = property $ do
     let src = test_src blob (h blob)
     annotate src -- Generated sourced
     evalIO $ writeFile "../tmp.mo" src
-    runCommand "cd .. && $(vessel bin)/moc $(vessel sources) -no-check-ir -wasi-system-api tmp.mo"
+    runCommand "cd .. && $(vessel bin)/moc $(mops sources) -no-check-ir -wasi-system-api tmp.mo"
     runCommand "cd .. && wasmtime tmp.wasm"
   where
     test_src b e = unlines
@@ -133,7 +133,7 @@ propPruned = property $ do
   let src = moSrc pairs reveal witness
   -- annotate src -- Generated sourced
   evalIO $ writeFile "../tmp.mo" src
-  runCommand "cd .. && $(vessel bin)/moc $(vessel sources) -no-check-ir -wasi-system-api tmp.mo"
+  runCommand "cd .. && $(vessel bin)/moc $(mops sources) -no-check-ir -wasi-system-api tmp.mo"
   runCommand "cd .. && wasmtime tmp.wasm"
 
 propDelete = property $ do
@@ -155,7 +155,7 @@ propDelete = property $ do
   let src = moSrcDel pairs dps pairs2
   -- annotate src -- Generated sourced
   evalIO $ writeFile "../tmp.mo" src
-  runCommand "cd .. && $(vessel bin)/moc $(vessel sources) -no-check-ir -wasi-system-api tmp.mo"
+  runCommand "cd .. && $(vessel bin)/moc $(mops sources) -no-check-ir -wasi-system-api tmp.mo"
   runCommand "cd .. && wasmtime tmp.wasm"
 
 
