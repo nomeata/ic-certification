@@ -100,9 +100,9 @@ propSHA256 = property $ do
   where
     test_src b e = unlines
       [ "import Debug \"mo:base/Debug\";"
-      , "import SHA256 \"mo:sha256/SHA256\";"
+      , "import SHA256 \"mo:sha2/Sha256\";"
       , "import Blob \"mo:base/Blob\";"
-      , printf "let h = Blob.fromArray(SHA256.sha256(Blob.toArray(%s)));" (moBlob b)
+      , printf "let h = SHA256.fromBlob(#sha256, %s);" (moBlob b)
       , "Debug.print(debug_show h);"
       , printf "assert (h == (%s : Blob));" (moBlob e)
       ]
