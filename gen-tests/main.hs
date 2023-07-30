@@ -95,14 +95,14 @@ propSHA256 = property $ do
     let src = test_src blob (h blob)
     annotate src -- Generated sourced
     evalIO $ writeFile "../tmp.mo" src
-    runCommand "cd .. && $(vessel bin)/moc $(vessel sources) -no-check-ir -wasi-system-api tmp.mo"
+    runCommand "cd .. && $(vessel bin)/moc $(mops sources) -no-check-ir -wasi-system-api tmp.mo"
     runCommand "cd .. && wasmtime tmp.wasm"
   where
     test_src b e = unlines
       [ "import Debug \"mo:base/Debug\";"
-      , "import SHA256 \"mo:sha256/SHA256\";"
+      , "import SHA256 \"mo:sha2/Sha256\";"
       , "import Blob \"mo:base/Blob\";"
-      , printf "let h = Blob.fromArray(SHA256.sha256(Blob.toArray(%s)));" (moBlob b)
+      , printf "let h = SHA256.fromBlob(#sha256, %s);" (moBlob b)
       , "Debug.print(debug_show h);"
       , printf "assert (h == (%s : Blob));" (moBlob e)
       ]
@@ -133,7 +133,7 @@ propPruned = property $ do
   let src = moSrc pairs reveal witness
   -- annotate src -- Generated sourced
   evalIO $ writeFile "../tmp.mo" src
-  runCommand "cd .. && $(vessel bin)/moc $(vessel sources) -no-check-ir -wasi-system-api tmp.mo"
+  runCommand "cd .. && $(vessel bin)/moc $(mops sources) -no-check-ir -wasi-system-api tmp.mo"
   runCommand "cd .. && wasmtime tmp.wasm"
 
 propDelete = property $ do
@@ -155,7 +155,7 @@ propDelete = property $ do
   let src = moSrcDel pairs dps pairs2
   -- annotate src -- Generated sourced
   evalIO $ writeFile "../tmp.mo" src
-  runCommand "cd .. && $(vessel bin)/moc $(vessel sources) -no-check-ir -wasi-system-api tmp.mo"
+  runCommand "cd .. && $(vessel bin)/moc $(mops sources) -no-check-ir -wasi-system-api tmp.mo"
   runCommand "cd .. && wasmtime tmp.wasm"
 
 

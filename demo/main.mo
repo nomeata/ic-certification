@@ -21,7 +21,7 @@ import Error "mo:base/Error";
 import Buffer "mo:base/Buffer";
 import Principal "mo:base/Principal";
 import CertifiedData "mo:base/CertifiedData";
-import SHA256 "mo:sha256/SHA256";
+import SHA256 "mo:sha2/Sha256";
 import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Int "mo:base/Int";
@@ -431,15 +431,13 @@ for the responses and send them off.
 Convenience function to implement SHA256 on Blobs rather than [Int8]
 */
   func h(b1 : Blob) : Blob {
-    let d = SHA256.Digest();
-    d.write(Blob.toArray(b1));
-    Blob.fromArray(d.sum());
+    SHA256.fromBlob(#sha256, b1)
   };
   func h2(b1 : Blob, b2 : Blob) : Blob {
-    let d = SHA256.Digest();
-    d.write(Blob.toArray(b1));
-    d.write(Blob.toArray(b2));
-    Blob.fromArray(d.sum());
+    let d = SHA256.Digest(#sha256);
+    d.writeBlob(b1);
+    d.writeBlob(b2);
+    d.sum();
   };
 
 /*
