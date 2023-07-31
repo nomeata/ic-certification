@@ -1,5 +1,5 @@
 {
-  inputs.nixpkgs.url = github:NixOS/nixpkgs/master;
+  inputs.nixpkgs.url = github:NixOS/nixpkgs/release-23.05;
   inputs.dfinity-sdk = {
     #url = "github:paulyoung/nixpkgs-dfinity-sdk";
     url = "github:nomeata/nixpkgs-dfinity-sdk/joachim/0.13.1";
@@ -25,7 +25,8 @@
       };
       vessel = (import vessel-src { inherit system; }).vessel;
 
-      # Generated with node2nix -i <( echo '["ic-mops"]' )
+      # Generated with:
+      # cd mops.nix/; nix run nixpkgs#node2nix -- -i <( echo '["ic-mops"]' ) -18
       mops = (import ./mops.nix { inherit system pkgs; }).ic-mops;
 
       dfx = (pkgs.dfinity-sdk {
