@@ -20,8 +20,8 @@
       vessel-src = pkgs.fetchFromGitHub {
         owner = "dfinity";
         repo = "vessel";
-        rev = "99661e40c4c47110129176ee9ecc61a50f1f60db";
-        hash = "sha256-nrSxy6L+wg+g9PFQJ964ZW2bZyiE/ZJ5S5N281/I6ys=";
+        rev = "v0.7.0";
+        hash = "sha256-pQcC5RDnZOQGXdrcZolTprMEryBwbi58GqGYb61rGZQ=";
       };
       vessel = (import vessel-src { inherit system; }).vessel;
 

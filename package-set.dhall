@@ -1,7 +1,7 @@
 let upstream =
-      https://github.com/dfinity/vessel-package-set/releases/download/mo-0.8.4-20230311/package-set.dhall sha256:bf5cec8ba99cfa6abcdb793a4aeaea9f4c913a4bd97af0a556bd6e81aaf75cd4
+      https://github.com/dfinity/vessel-package-set/releases/download/mo-0.10.0-20230911/package-set.dhall sha256:7bce6afe8b96a8808f66b5b6f7015257d44fc1f3e95add7ced3ccb7ce36e5603
 
-
+{-
 let additions = [
    { name = "cbor"
    , repo = "https://github.com/gekctek/motoko_cbor"
@@ -15,4 +15,7 @@ let additions = [
    }
 ]
 in upstream # additions
+-}
+
+in upstream
 

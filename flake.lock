@@ -3,11 +3,11 @@
     "dfinity-sdk": {
       "flake": false,
       "locked": {
-        "lastModified": 1690841073,
-        "narHash": "sha256-zKq2haPtA0mAbIa1Kekj4mw4DTYdlQVjoaUdglFUDKM=",
+        "lastModified": 1694696026,
+        "narHash": "sha256-G1wtjtcS8VhvTMGZode2G0UW3l5ezhBj/96i8FxXPZY=",
         "owner": "nomeata",
         "repo": "nixpkgs-dfinity-sdk",
-        "rev": "2c2234d8c7894f37b14f608e8025fa1c189f2e1f",
+        "rev": "3f62b01f7a3052fad4e17ca158383e4b8fe4ebfa",
         "type": "github"
       },
       "original": {
@@ -19,11 +19,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1690835256,
-        "narHash": "sha256-SZy/Nvwbf6CorhEsvmjqgjoYNLnRfaKVZMfSnpUDPnc=",
+        "lastModified": 1694680026,
+        "narHash": "sha256-Q7fszWVjRdAGbbk1KH/xdG8hLQ4i5yiA0Lb7LJ8bydg=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "b7cde1c47b7316f6138a2b36ef6627f3d16d645c",
+        "rev": "2885d712a1993a223ee411c7045dac679cc93b65",
         "type": "github"
       },
       "original": {

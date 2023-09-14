@@ -19,7 +19,7 @@ jobs:
         node-version: 18
     - name: "install vessel and mops"
       run: |
-       wget --output-document /home/runner/bin/vessel https://github.com/dfinity/vessel/releases/download/v0.6.5/vessel-linux64
+       wget --output-document /home/runner/bin/vessel https://github.com/dfinity/vessel/releases/download/v0.7.0/vessel-linux64
        chmod +x /home/runner/bin/vessel
        npm i -g ic-mops
     - name: "check"
