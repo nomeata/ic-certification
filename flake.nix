@@ -38,6 +38,7 @@
     {
       packages.x86_64-linux.dfx = dfx;
       packages.x86_64-linux.mops = mops;
+      packages.x86_64-linux.vessel = vessel;
       devShell.x86_64-linux = pkgs.mkShell {
         buildInputs = [
           pkgs.wasmtime
