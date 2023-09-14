@@ -34,8 +34,8 @@ jobs:
       with:
         path: |
           ~/.cabal/store
-        key: cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('ic-ref/impl/cabal.project', 'ic-ref/impl/cabal.project.freeze') }}
-        restore-keys: cabal-${{ runner.os }}-${{ matrix.ghc }}-
+        key: cabal-${{ runner.os }}-${{ hashFiles('gen-tests/*.cabal', 'gen-tests/cabal.project.freeze') }}
+        restore-keys: cabal-${{ runner.os }}-
     - uses: haskell/actions/setup@v2
       with:
         ghc-version: 9.2.6
