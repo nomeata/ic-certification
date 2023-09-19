@@ -17,23 +17,6 @@
         "type": "github"
       }
     },
-    "motoko": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1694433996,
-        "narHash": "sha256-txgfrXPqfOAYam1InJUlg+XHS93uDm1iFLri1c65rhA=",
-        "owner": "dfinity",
-        "repo": "motoko",
-        "rev": "e1dddb51703bd138fc1ef5b45e76f06807bb5634",
-        "type": "github"
-      },
-      "original": {
-        "owner": "dfinity",
-        "ref": "0.10.0",
-        "repo": "motoko",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1694680026,
@@ -53,7 +36,6 @@
     "root": {
       "inputs": {
         "dfinity-sdk": "dfinity-sdk",
-        "motoko": "motoko",
         "nixpkgs": "nixpkgs"
       }
     }

@@ -5,14 +5,10 @@
     url = "github:nomeata/nixpkgs-dfinity-sdk/joachim/0.13.1";
     flake = false;
   };
-  inputs.motoko = {
-    url = "github:dfinity/motoko/0.10.0";
-    flake = false;
-  };
 
   description = "Development environment";
 
-  outputs = { self, nixpkgs, dfinity-sdk, motoko}:
+  outputs = { self, nixpkgs, dfinity-sdk }:
     let
       system = "x86_64-linux";
 
@@ -29,8 +25,6 @@
       };
       vessel = (import vessel-src { inherit system; }).vessel;
 
-      motokoPkgs = import motoko { inherit system; };
-
       # Generated with:
       # cd mops.nix/; nix run nixpkgs#node2nix -- -i <( echo '["ic-mops"]' ) -18
       mops = (import ./mops.nix { inherit system pkgs; }).ic-mops;
@@ -44,8 +38,6 @@
     {
       packages.x86_64-linux.dfx = dfx;
       packages.x86_64-linux.mops = mops;
-      packages.x86_64-linux.moc = motokoPkgs.moc;
-      packages.x86_64-linux.mo-doc = motokoPkgs.mo-doc;
       packages.x86_64-linux.vessel = vessel;
       devShell.x86_64-linux = pkgs.mkShell {
         buildInputs = [
@@ -56,15 +48,11 @@
               memory typed-process quickcheck-instances
             ]))
           pkgs.ghcid
-          # NB: moc before dfx
-          motokoPkgs.moc
-          motokoPkgs.mo-doc
           dfx
           pkgs.dhall
           pkgs.nodejs
           mops
         ];
-        DFX_MOC_PATH = motokoPkgs.moc + ./bin/moc;
       };
     };
 }
