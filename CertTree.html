@@ -21,7 +21,7 @@ of whether there is a value at that path, or a whole subtree.</p>
 <p>If there are values at any prefix of the given path,
 they will be removed.</p>
 </p></div><div class="declaration"><h4 class="function" id="Ops.lookup"><code><span class="keyword">public func </span><span class="fnname">lookup</span>(<span class="parameter">ks</span> : <a href="#type.Path"><span class="type">Path</span></a>) : ?<a href="#type.Value"><span class="type">Value</span></a></code></h4><p><p>Looking up a value at a path</p>
-<p>This will return <code>null</code> if the path does not exist, or if 
+<p>This will return <code>null</code> if the path does not exist, or if
 there is a subtree (and not a value) at that key.</p>
 </p></div><div class="declaration"><h4 class="function" id="Ops.labelsAt"><code><span class="keyword">public func </span><span class="fnname">labelsAt</span>(<span class="parameter">ks</span> : <a href="#type.Path"><span class="type">Path</span></a>) : <span class="type">Iter.Iter</span>&lt;<a href="#type.Key"><span class="type">Key</span></a>&gt;</code></h4><p><p>Lookup up all labels at a path.</p>
 <p>Returns an iterator, so you can use it with</p>

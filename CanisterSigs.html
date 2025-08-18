@@ -33,7 +33,7 @@ prepare/fetch/delete cycle.</p>
 <p>Instantiate it with access to your canister's <code>CertTree.Ops</code>, e.g.</p>
 <pre><code>stable let cert_store : CertTree.Store = CertTree.newStore();
 let ct = CertTree.Ops(cert_store);
-let csm = CanisterSigs.Manager(ct, null); </code></pre><p>Then in the update call, call <code>prepare</code>, and in the query call call <code>fetch</code>.</p>
+let csm = CanisterSigs.Manager(ct, null);</code></pre><p>Then in the update call, call <code>prepare</code>, and in the query call call <code>fetch</code>.</p>
 <p>If your <code>CertTree.Store</code> is stable, it is recommended to prune all signatures in pre or
 post-upgrade:</p>
 <pre><code>system func preupgrade() {
