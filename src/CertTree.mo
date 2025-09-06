@@ -18,8 +18,8 @@
 ///   ```
 
 import MerkleTree "MerkleTree";
-import Iter "mo:base/Iter";
-import CertifiedData "mo:base/CertifiedData";
+import Iter "mo:base@0/Iter";
+import CertifiedData "mo:base@0/CertifiedData";
 
 module {
 

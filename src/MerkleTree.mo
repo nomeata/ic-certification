@@ -31,13 +31,13 @@
 ///
 /// [HashTree]: <https://internetcomputer.org/docs/current/references/ic-interface-spec#certificate>
 
-import Iter "mo:base/Iter";
-import Debug "mo:base/Debug";
-import Blob "mo:base/Blob";
-import Buffer "mo:base/Buffer";
-import Stack "mo:base/Stack";
-import Nat8 "mo:base/Nat8";
-import SHA256 "mo:sha2/Sha256";
+import Iter "mo:base@0/Iter";
+import Debug "mo:base@0/Debug";
+import Blob "mo:base@0/Blob";
+import Buffer "mo:base@0/Buffer";
+import Stack "mo:base@0/Stack";
+import Nat8 "mo:base@0/Nat8";
+import SHA256 "mo:sha2@0/Sha256";
 import Dyadic "Dyadic";
 
 module {

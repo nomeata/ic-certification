@@ -8,16 +8,16 @@
 ///
 /// [Representation-independent hash]: <https://internetcomputer.org/docs/current/references/ic-interface-spec#hash-of-map>
 
-import SHA256 "mo:sha2/Sha256";
-import Buffer "mo:base/Buffer";
-import Iter "mo:base/Iter";
-import Blob "mo:base/Blob";
-import Debug "mo:base/Debug";
-import Text "mo:base/Text";
-import CBOR "mo:cbor";
-import Nat64 "mo:base/Nat64";
-import Array "mo:base/Array";
-import Nat8 "mo:base/Nat8";
+import SHA256 "mo:sha2@0/Sha256";
+import Buffer "mo:base@0/Buffer";
+import Iter "mo:base@0/Iter";
+import Blob "mo:base@0/Blob";
+import Debug "mo:base@0/Debug";
+import Text "mo:base@0/Text";
+import CBOR "mo:cbor@4";
+import Nat64 "mo:base@0/Nat64";
+import Array "mo:base@0/Array";
+import Nat8 "mo:base@0/Nat8";
 
 module {
 

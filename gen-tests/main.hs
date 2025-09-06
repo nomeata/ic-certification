@@ -39,7 +39,7 @@ type Pairs = [(Path, Value)]
 
 moSrc :: Pairs -> [Path] -> HashTree -> String
 moSrc pairs reveal exp_w = unlines $
-  [ "import Debug \"mo:base/Debug\";"
+  [ "import Debug \"mo:base@0/Debug\";"
   , "import MerkleTree \"src/MerkleTree\";"
   , "var t = MerkleTree.empty();"
   ] ++
@@ -55,7 +55,7 @@ moSrc pairs reveal exp_w = unlines $
 
 moSrcDel :: Pairs -> [Path] -> Pairs -> String
 moSrcDel pairs1 dps pairs2 = unlines $
-  [ "import Debug \"mo:base/Debug\";"
+  [ "import Debug \"mo:base@0/Debug\";"
   , "import MerkleTree \"src/MerkleTree\";"
   , "var t1 = MerkleTree.empty();" ] ++
   [ printf "t1 := MerkleTree.put(t1, %s, %s);" (moBlobs k) (moBlob v) | (k,v) <- pairs1 ] ++
@@ -99,9 +99,9 @@ propSHA256 = property $ do
     runCommand "cd .. && $(mops toolchain bin wasmtime) tmp.wasm"
   where
     test_src b e = unlines
-      [ "import Debug \"mo:base/Debug\";"
-      , "import SHA256 \"mo:sha2/Sha256\";"
-      , "import Blob \"mo:base/Blob\";"
+      [ "import Debug \"mo:base@0/Debug\";"
+      , "import SHA256 \"mo:sha2@0/Sha256\";"
+      , "import Blob \"mo:base@0/Blob\";"
       , printf "let h = SHA256.fromBlob(#sha256, %s);" (moBlob b)
       , "Debug.print(debug_show h);"
       , printf "assert (h == (%s : Blob));" (moBlob e)

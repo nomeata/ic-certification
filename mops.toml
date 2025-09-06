@@ -1,17 +1,16 @@
 [package]
 name = "ic-certification"
-version = "1.0.0"
+version = "1.1.0"
 description = "Certification and Canister Signatures"
 repository = "https://github.com/nomeata/ic-certification"
 
 [dependencies]
-base = "0.15.1"
-sha2 = "0.1.6"
-cbor = "4.0.0"
+"base@0" = "0.16.0"
+"sha2@0" = "0.1.6"
+"cbor@4" = "4.1.0"
 
 [dev-dependencies]
 test = "2.1.1"
 
 [toolchain]
-moc = "0.15.1"
 wasmtime = "35.0.0"

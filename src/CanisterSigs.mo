@@ -6,19 +6,19 @@
 /// [Canister Signature scheme]: <https://internetcomputer.org/docs/current/references/ic-interface-spec#canister-signatures>
 ///
 
-import Principal "mo:base/Principal";
-import Buffer "mo:base/Buffer";
-import Nat8 "mo:base/Nat8";
-import Blob "mo:base/Blob";
+import Principal "mo:base@0/Principal";
+import Buffer "mo:base@0/Buffer";
+import Nat8 "mo:base@0/Nat8";
+import Blob "mo:base@0/Blob";
 import MerkleTree "MerkleTree";
 import ReqData "ReqData";
 import CertTree "CertTree";
-import Time "mo:base/Time";
-import Deque "mo:base/Deque";
-import CertifiedData "mo:base/CertifiedData";
-import SHA256 "mo:sha2/Sha256";
-import Debug "mo:base/Debug";
-import List "mo:base/List";
+import Time "mo:base@0/Time";
+import Deque "mo:base@0/Deque";
+import CertifiedData "mo:base@0/CertifiedData";
+import SHA256 "mo:sha2@0/Sha256";
+import Debug "mo:base@0/Debug";
+import List "mo:base@0/List";
 
 module {
   public type PublicKey = Blob;
